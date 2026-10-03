@@ -87,10 +87,7 @@ class block_zoomattendance extends block_base {
         /** @var \block_zoomattendance\output\renderer $renderer */
         $renderer = $this->page->get_renderer('block_zoomattendance');
         $this->content->text = $renderer->overview($data);
-        $this->content->footer = html_writer::div(
-            get_string('updatedhourly', 'block_zoomattendance'),
-            'text-muted small'
-        );
+        $this->content->footer = $renderer->updated($data['built']);
         return $this->content;
     }
 }
