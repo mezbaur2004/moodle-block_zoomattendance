@@ -15,20 +15,24 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for block_zoomattendance.
+ * Upgrade steps for block_zoomattendance.
  *
  * @package    block_zoomattendance
  * @copyright  2026 Mezbaur Are Rafi
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'block_zoomattendance';
-$plugin->version = 2026100400;
-$plugin->requires = 2022112800; // Moodle 4.1.
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.3.0';
-$plugin->dependencies = [
-    'local_zoomattendance' => 2026100401, // 0.3.4, for "When joined".
-];
+/**
+ * Upgrade the block.
+ *
+ * @param int $oldversion
+ * @return bool
+ */
+function xmldb_block_zoomattendance_upgrade($oldversion) {
+    if ($oldversion < 2026100400) {
+        // The block's own threshold gave way to the thresholds of local_zoomattendance.
+        unset_config('threshold', 'block_zoomattendance');
+        upgrade_block_savepoint(true, 2026100400, 'zoomattendance', false);
+    }
+    return true;
+}

@@ -30,8 +30,9 @@ use moodle_url;
 /**
  * Renders the block's sections.
  *
- * Each percentage is a number plus a thin bar with a marker at the threshold. A value below the
- * threshold also gets a "Low" label, so it never relies on colour alone.
+ * Each percentage is a number plus a thin bar coloured as local_zoomattendance colours it: green
+ * from the Present threshold, orange from the Partial threshold and red below, with a line at the
+ * Present threshold. A red value also gets a "Low" label, so it never relies on colour alone.
  */
 class renderer extends \plugin_renderer_base {
     /**
@@ -42,9 +43,9 @@ class renderer extends \plugin_renderer_base {
      */
     public function overview(array $data): string {
         global $USER;
-        $threshold = (float) $data['threshold'];
-        // Teachers are measured against their own, stricter Present threshold.
-        $teacherthreshold = (float) $data['teacherthreshold'];
+        $students = $data['thresholds'];
+        // Teachers are measured against their own, stricter thresholds.
+        $teachers = $data['teacherthresholds'];
         $range = ['fromts' => $data['from'], 'tots' => usergetmidnight($data['to'])];
         $out = '';
 
@@ -56,13 +57,13 @@ class renderer extends \plugin_renderer_base {
                     $this->course_name($row['courseid'], $row['name']),
                     '',
                     $row['percentage'],
-                    $threshold
+                    $students
                 );
             }
             $out .= $this->section(
                 'i/user',
                 get_string('mine', 'block_zoomattendance'),
-                get_string('minehelp', 'block_zoomattendance', format_float($threshold, 0)),
+                get_string('minehelp', 'block_zoomattendance', (object) self::bands($students)),
                 $items
             );
         }
@@ -75,7 +76,7 @@ class renderer extends \plugin_renderer_base {
             $out .= $this->section(
                 'i/users',
                 get_string('studentsheading', 'block_zoomattendance'),
-                get_string('studentshelp', 'block_zoomattendance', format_float($threshold, 0)),
+                get_string('studentshelp', 'block_zoomattendance', format_float($students['partial'], 0)),
                 $items
             );
         }
@@ -86,18 +87,16 @@ class renderer extends \plugin_renderer_base {
                 $items[] = $this->meter_row(
                     new moodle_url('/local/zoomattendance/teachers.php', ['id' => $row['courseid']] + $range),
                     $this->course_name($row['courseid'], $row['name']),
-                    get_string('classescount', 'block_zoomattendance', $row['classes']),
+                    get_string('classescount', 'block_zoomattendance', $row['classes'])
+                        . $this->joined_line($row['joined'], $row['joinedclasses'], $row['classes']),
                     $row['percentage'],
-                    $teacherthreshold
+                    $teachers
                 );
             }
             $out .= $this->section(
                 'i/calendar',
                 get_string('teachingheading', 'block_zoomattendance'),
-                get_string('teachinghelp', 'block_zoomattendance', (object) [
-                    'days' => $data['days'],
-                    'threshold' => format_float($teacherthreshold, 0),
-                ]),
+                get_string('teachinghelp', 'block_zoomattendance', (object) (['days' => $data['days']] + self::bands($teachers))),
                 $items
             );
         }
@@ -108,9 +107,9 @@ class renderer extends \plugin_renderer_base {
                 $items[] = $this->meter_row(
                     new moodle_url('/local/zoomattendance/teachers.php', ['id' => $row['courseid']] + $range),
                     s($row['name']),
-                    $this->course_name($row['courseid'], $row['course']),
+                    $this->course_name($row['courseid'], $row['course']) . $this->joined_line($row['joined']),
                     $row['percentage'],
-                    $teacherthreshold
+                    $teachers
                 );
             }
             $all = html_writer::link(
@@ -121,10 +120,7 @@ class renderer extends \plugin_renderer_base {
             $out .= $this->section(
                 'i/report',
                 get_string('teachersheading', 'block_zoomattendance'),
-                get_string('teachershelp', 'block_zoomattendance', (object) [
-                    'days' => $data['days'],
-                    'threshold' => format_float($teacherthreshold, 0),
-                ]),
+                get_string('teachershelp', 'block_zoomattendance', (object) (['days' => $data['days']] + self::bands($teachers))),
                 $items,
                 $all
             );
@@ -172,17 +168,69 @@ class renderer extends \plugin_renderer_base {
     }
 
     /**
+     * "When joined" under a teacher figure: attendance over only the classes they joined.
+     *
+     * @param float|null $joined
+     * @param int|null $classesjoined How many classes they joined, to show beside it.
+     * @param int|null $classes How many classes counted.
+     * @return string '' when they joined none.
+     */
+    protected function joined_line(?float $joined, ?int $classesjoined = null, ?int $classes = null): string {
+        if ($joined === null) {
+            return '';
+        }
+        $text = get_string('whenjoinedvalue', 'block_zoomattendance', format_float($joined, 1) . '%');
+        if ($classesjoined !== null && $classes !== null) {
+            $text .= ' ' . get_string('joinedof', 'block_zoomattendance', (object) [
+                'joined' => $classesjoined,
+                'classes' => $classes,
+            ]);
+        }
+        return html_writer::div(s($text), 'block_zoomattendance-joined', [
+            'title' => get_string('whenjoined_help', 'block_zoomattendance'),
+        ]);
+    }
+
+    /**
+     * Thresholds as text for the section hints.
+     *
+     * @param float[] $thresholds With present and partial.
+     * @return string[] With present and partial.
+     */
+    protected static function bands(array $thresholds): array {
+        return [
+            'present' => format_float($thresholds['present'], 0),
+            'partial' => format_float($thresholds['partial'], 0),
+        ];
+    }
+
+    /**
+     * Colour of a percentage, as local_zoomattendance colours overall figures.
+     *
+     * @param float|null $percentage
+     * @param float[] $thresholds With present and partial.
+     * @return string A Bootstrap colour: success, warning or danger.
+     */
+    public static function variant(?float $percentage, array $thresholds): string {
+        if ($percentage !== null && $percentage >= $thresholds['present']) {
+            return 'success';
+        }
+        return ($percentage !== null && $percentage >= $thresholds['partial']) ? 'warning' : 'danger';
+    }
+
+    /**
      * A row with a percentage bar.
      *
      * @param moodle_url $url
      * @param string $label HTML.
      * @param string $sublabel HTML under the label, or ''.
      * @param float|null $percentage
-     * @param float $threshold
+     * @param float[] $thresholds With present and partial.
      * @return string
      */
-    protected function meter_row(moodle_url $url, string $label, string $sublabel, ?float $percentage, float $threshold): string {
-        $low = $percentage !== null && $percentage < $threshold;
+    protected function meter_row(moodle_url $url, string $label, string $sublabel, ?float $percentage, array $thresholds): string {
+        $variant = self::variant($percentage, $thresholds);
+        $low = $percentage !== null && $variant === 'danger';
         $value = $percentage === null ? '–' : format_float($percentage, 1) . '%';
         $top = html_writer::div(
             html_writer::div(
@@ -197,11 +245,12 @@ class renderer extends \plugin_renderer_base {
             ),
             'd-flex justify-content-between align-items-start'
         );
-        return html_writer::tag('li', $top . $this->meter($percentage, $threshold, $low), ['class' => 'block_zoomattendance-row']);
+        $bar = $this->meter($percentage, $thresholds, $variant);
+        return html_writer::tag('li', $top . $bar, ['class' => 'block_zoomattendance-row']);
     }
 
     /**
-     * A row with a course's count of students below the threshold.
+     * A row with a course's count of students below the Partial threshold.
      *
      * @param array $row With courseid, name, low and total.
      * @return string
@@ -242,21 +291,21 @@ class renderer extends \plugin_renderer_base {
     }
 
     /**
-     * A thin bar filled to the percentage, with a marker at the threshold.
+     * A thin bar filled to the percentage in its colour, with a line at the Present threshold.
      *
      * @param float|null $percentage
-     * @param float $threshold
-     * @param bool $low
+     * @param float[] $thresholds With present and partial.
+     * @param string $variant From variant().
      * @return string
      */
-    protected function meter(?float $percentage, float $threshold, bool $low): string {
+    protected function meter(?float $percentage, array $thresholds, string $variant): string {
         $width = $percentage === null ? 0 : max(0, min(100, $percentage));
-        $fill = html_writer::div('', 'block_zoomattendance-fill ' . ($low ? 'bg-danger' : 'bg-primary'), [
+        $fill = html_writer::div('', 'block_zoomattendance-fill bg-' . $variant, [
             'style' => 'width: ' . round($width, 1) . '%;',
         ]);
         $marker = html_writer::div('', 'block_zoomattendance-marker', [
-            'style' => 'left: ' . round($threshold, 1) . '%;',
-            'title' => get_string('thresholdmarker', 'block_zoomattendance', format_float($threshold, 0)),
+            'style' => 'left: ' . round($thresholds['present'], 1) . '%;',
+            'title' => get_string('thresholdmarker', 'block_zoomattendance', format_float($thresholds['present'], 0)),
         ]);
         return html_writer::div($fill . $marker, 'block_zoomattendance-meter', [
             'role' => 'progressbar',

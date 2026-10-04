@@ -27,10 +27,12 @@ namespace block_zoomattendance\local;
 use local_zoomattendance\local\sync;
 
 #[\PHPUnit\Framework\Attributes\CoversClass(content::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\block_zoomattendance\output\renderer::class)]
 /**
  * Tests for the block content, built on local_zoomattendance's generator.
  *
  * @covers \block_zoomattendance\local\content
+ * @covers \block_zoomattendance\output\renderer
  */
 final class content_test extends \advanced_testcase {
     /** @var \stdClass */
@@ -96,11 +98,13 @@ final class content_test extends \advanced_testcase {
         $this->assertCount(1, $data['teaching']);
         $this->assertEqualsWithDelta(100.0, $data['teaching'][0]['percentage'], 0.01);
         $this->assertSame(1, $data['teaching'][0]['classes']);
+        $this->assertEqualsWithDelta(100.0, $data['teaching'][0]['joined'], 0.01);
+        $this->assertSame(1, $data['teaching'][0]['joinedclasses']);
         // Coordinators see their Teachers on the reports, not in the managers' section.
         $this->assertNull($data['teachers']);
 
-        // The threshold is a setting.
-        set_config('threshold', 20, 'block_zoomattendance');
+        // Low means below the Partial threshold of Zoom attendance (50 % by default; Low has 25 %).
+        set_config('latepct', 20, 'local_zoomattendance');
         $this->assertSame(0, content::build()['students'][0]['low']);
     }
 
@@ -117,8 +121,10 @@ final class content_test extends \advanced_testcase {
         $data = content::build();
         $this->assertSame(1, $data['students'][0]['total']);
         $this->assertSame(1, $data['students'][0]['low']);
-        // Absent from the only class.
+        // Absent from the only class, so nothing for "When joined".
         $this->assertEqualsWithDelta(0.0, $data['teaching'][0]['percentage'], 0.01);
+        $this->assertNull($data['teaching'][0]['joined']);
+        $this->assertSame(0, $data['teaching'][0]['joinedclasses']);
     }
 
     public function test_manager_sees_lowest_teachers_first(): void {
@@ -142,14 +148,20 @@ final class content_test extends \advanced_testcase {
         $data['mine'] = [['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'percentage' => 40.0]];
         $html = $PAGE->get_renderer('block_zoomattendance')->overview($data);
         $this->assertStringContainsString('My attendance', $html);
+        $this->assertStringContainsString('Course overall. Green from 75%, orange from 50%, red below.', $html);
         $this->assertStringContainsString('40.0%', $html);
+        // 40 % is below the Partial threshold (50 %): red, and labelled Low.
         $this->assertStringContainsString('text-danger', $html);
         $this->assertStringContainsString('>Low<', $html);
-        $this->assertStringContainsString('width: 40%;', $html);
-        $this->assertStringContainsString('left: 50%;', $html);
+        $this->assertStringContainsString('block_zoomattendance-fill bg-danger" style="width: 40%;"', $html);
+        // The line marks the student Present threshold (75 %) and the teacher one (90 %).
+        $this->assertStringContainsString('left: 75%;', $html);
         $this->assertStringContainsString('Teacher attendance', $html);
-        $this->assertStringContainsString('Last 30 days, lowest first. The line marks 90%.', $html);
+        $this->assertStringContainsString('Last 30 days, lowest first. Green from 90%, orange from 10%, red below.', $html);
         $this->assertStringContainsString('left: 90%;', $html);
+        // The coordinator at 100 % is green, and joined their one class.
+        $this->assertStringContainsString('bg-success" style="width: 100%;"', $html);
+        $this->assertStringContainsString('When joined: 100.0%', $html);
         $this->assertStringContainsString('All teachers (2)', $html);
         $this->assertStringContainsString('/local/zoomattendance/teachersoverview.php', $html);
         $this->assertStringContainsString('Updated', $PAGE->get_renderer('block_zoomattendance')->updated($data['built']));
@@ -162,10 +174,24 @@ final class content_test extends \advanced_testcase {
         // The content is cached per user until it is an hour old.
         $this->setUser($this->users['full']);
         $first = content::get();
-        set_config('threshold', 10, 'block_zoomattendance');
+        set_config('latepct', 10, 'local_zoomattendance');
         $this->assertSame($first, content::get());
         $cache = \cache::make('block_zoomattendance', 'content');
         $cache->set((int) $this->users['full']->id, ['time' => time() - content::CACHE_SECS - 1, 'data' => $first]);
-        $this->assertSame(10.0, content::get()['threshold']);
+        $this->assertSame(10.0, content::get()['thresholds']['partial']);
+    }
+
+    public function test_colours_match_zoom_attendance(): void {
+        $renderer = \block_zoomattendance\output\renderer::class;
+        $students = content::student_thresholds();
+        $this->assertSame(['present' => 75.0, 'partial' => 50.0], $students);
+        $this->assertSame('success', $renderer::variant(75.0, $students));
+        $this->assertSame('warning', $renderer::variant(74.9, $students));
+        $this->assertSame('warning', $renderer::variant(50.0, $students));
+        $this->assertSame('danger', $renderer::variant(49.9, $students));
+        $teachers = content::teacher_thresholds();
+        $this->assertSame(['present' => 90.0, 'partial' => 10.0], $teachers);
+        $this->assertSame('warning', $renderer::variant(65.8, $teachers));
+        $this->assertSame('danger', $renderer::variant(5.0, $teachers));
     }
 }

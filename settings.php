@@ -26,17 +26,16 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configtext(
-        'block_zoomattendance/threshold',
-        new lang_string('threshold', 'block_zoomattendance'),
-        new lang_string('threshold_desc', 'block_zoomattendance'),
-        50,
-        PARAM_INT
-    ));
-    $settings->add(new admin_setting_configtext(
         'block_zoomattendance/days',
         new lang_string('days', 'block_zoomattendance'),
         new lang_string('days_desc', 'block_zoomattendance'),
         30,
         PARAM_INT
+    ));
+    // Colours follow the thresholds of Zoom attendance itself.
+    $settings->add(new admin_setting_description(
+        'block_zoomattendance/colours',
+        '',
+        new lang_string('colours_desc', 'block_zoomattendance')
     ));
 }
