@@ -34,7 +34,8 @@ use local_zoomattendance\local\teacher_overview;
  * Every figure comes from local_zoomattendance's own summaries and capability checks, so the
  * block always agrees with its reports. Sections:
  * - mine: the user's own course overall, per course where they are an expected participant;
- * - students: per course where they view reports, how many students are below the threshold;
+ * - students: per course where they view reports, how many students are low (below the Partial
+ *   threshold);
  * - teaching: their own teaching attendance over the recent period, per course;
  * - teachers: the teachers with the lowest attendance, where they view every teacher.
  *
@@ -68,8 +69,8 @@ class content {
      * Build the current user's content.
      *
      * @return array With mine, students, teaching (lists of rows), teachers ({rows, total} or
-     *     null), the from, to, days, threshold and teacherthreshold (the teacher Present
-     *     threshold) they were built with, and built (the time).
+     *     null), the from, to and days they cover, thresholds and teacherthresholds (see
+     *     student_thresholds()), and built (the time).
      */
     public static function build(): array {
         global $USER;
@@ -86,8 +87,8 @@ class content {
             'from' => $from,
             'to' => $to,
             'days' => $days,
-            'threshold' => self::threshold(),
-            'teacherthreshold' => (float) settings::teacher()->presentpct,
+            'thresholds' => self::student_thresholds(),
+            'teacherthresholds' => self::teacher_thresholds(),
             'built' => time(),
         ];
         if (settings::teacher_tracking()) {
@@ -118,13 +119,24 @@ class content {
     }
 
     /**
-     * Students below this course overall percentage are counted as low.
+     * Student thresholds: local_zoomattendance's site defaults, which its Course overall uses.
+     * Below the Partial threshold a student is low.
      *
-     * @return float
+     * @return float[] With present and partial.
      */
-    public static function threshold(): float {
-        $threshold = get_config('block_zoomattendance', 'threshold');
-        return ($threshold === false || $threshold === '') ? 50.0 : max(0.0, min(100.0, (float) $threshold));
+    public static function student_thresholds(): array {
+        $settings = settings::site_defaults();
+        return ['present' => (float) $settings->presentpct, 'partial' => (float) $settings->latepct];
+    }
+
+    /**
+     * Teacher thresholds of local_zoomattendance.
+     *
+     * @return float[] With present and partial.
+     */
+    public static function teacher_thresholds(): array {
+        $settings = settings::teacher();
+        return ['present' => (float) $settings->presentpct, 'partial' => (float) $settings->latepct];
     }
 
     /**
@@ -168,7 +180,7 @@ class content {
     }
 
     /**
-     * Per course where the user views reports, the students below the threshold. A user who
+     * Per course where the user views reports, the students below the Partial threshold. A user who
      * cannot see all groups of a separate-groups course only counts their own groups.
      *
      * @param int $userid
@@ -176,7 +188,7 @@ class content {
      * @return array[] Each with courseid, name, low and total; most low students first.
      */
     protected static function students(int $userid, array $courses): array {
-        $threshold = self::threshold();
+        $threshold = self::student_thresholds()['partial'];
         $rows = [];
         foreach ($courses as $course) {
             $context = \context_course::instance($course->id);
@@ -219,7 +231,8 @@ class content {
      * @param int $userid
      * @param int $from
      * @param int $to
-     * @return array[] Each with courseid, name, percentage and classes.
+     * @return array[] Each with courseid, name, percentage, classes, joined (the percentage over
+     *     only the classes they joined, or null) and joinedclasses.
      */
     protected static function teaching(int $userid, int $from, int $to): array {
         $rows = [];
@@ -233,6 +246,9 @@ class content {
                 'name' => $row->course->fullname,
                 'percentage' => $row->overall ? $row->overall->percentage() : null,
                 'classes' => (int) $row->stats['expected'],
+                // Over only the classes they joined.
+                'joined' => $row->joined ? $row->joined->percentage() : null,
+                'joinedclasses' => (int) $row->stats['joined'],
             ];
         }
         return $rows;
@@ -244,7 +260,7 @@ class content {
      * @param int $userid
      * @param int $from
      * @param int $to
-     * @return array|null With rows (each with name, courseid, course and percentage) and total,
+     * @return array|null With rows (each with name, courseid, course, percentage and joined) and total,
      *     or null when the user views no teacher reports.
      */
     protected static function teachers(int $userid, int $from, int $to): ?array {
@@ -261,6 +277,7 @@ class content {
                 'courseid' => (int) $row->course->id,
                 'course' => $row->course->fullname,
                 'percentage' => $row->overall->percentage(),
+                'joined' => $row->joined ? $row->joined->percentage() : null,
             ];
         }
         usort($rows, function ($a, $b) {
