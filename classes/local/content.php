@@ -68,7 +68,8 @@ class content {
      * Build the current user's content.
      *
      * @return array With mine, students, teaching (lists of rows), teachers ({rows, total} or
-     *     null) and the from, to, days and threshold they were built with.
+     *     null), the from, to, days, threshold and teacherthreshold (the teacher Present
+     *     threshold) they were built with, and built (the time).
      */
     public static function build(): array {
         global $USER;
@@ -86,6 +87,8 @@ class content {
             'to' => $to,
             'days' => $days,
             'threshold' => self::threshold(),
+            'teacherthreshold' => (float) settings::teacher()->presentpct,
+            'built' => time(),
         ];
         if (settings::teacher_tracking()) {
             $data['teaching'] = self::teaching($userid, $from, $to);

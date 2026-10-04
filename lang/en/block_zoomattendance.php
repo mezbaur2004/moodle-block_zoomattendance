@@ -24,20 +24,29 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['allteachers'] = 'All teachers ({$a})';
+$string['allabove'] = 'All {$a} on track';
+$string['allteachers'] = 'All teachers ({$a}) ›';
 $string['cachedef_content'] = 'Each user\'s Zoom attendance block content';
+$string['classescount'] = 'Classes: {$a}';
 $string['days'] = 'Teacher period (days)';
 $string['days_desc'] = 'The teacher sections cover classes from this many days ago until today.';
-$string['lowcount'] = '{$a->low} of {$a->total}';
+$string['low'] = 'Low';
+$string['lowcount'] = '{$a->low} of {$a->total} low';
 $string['mine'] = 'My attendance';
+$string['minehelp'] = 'Course overall. The line marks {$a}%.';
 $string['nothing'] = 'Nothing to show: this account has no Zoom attendance yet.';
 $string['pluginname'] = 'Zoom attendance';
 $string['privacy:metadata'] = 'The Zoom attendance block stores no personal data. It shows data from the Zoom attendance local plugin.';
-$string['students'] = 'Students under {$a}%';
-$string['teachers'] = 'Lowest teacher attendance (last {$a} days)';
-$string['teaching'] = 'My teaching (last {$a} days)';
+$string['refreshes'] = 'Refreshes hourly, after each attendance sync.';
+$string['studentsheading'] = 'My students';
+$string['studentshelp'] = 'Students under {$a}% course overall';
+$string['teachersheading'] = 'Teacher attendance';
+$string['teachershelp'] = 'Last {$a->days} days, lowest first. The line marks {$a->threshold}%.';
+$string['teachingheading'] = 'My teaching';
+$string['teachinghelp'] = 'Last {$a->days} days. The line marks {$a->threshold}%.';
 $string['threshold'] = 'Low attendance threshold (%)';
-$string['threshold_desc'] = 'Students whose course overall is below this percentage are counted under "Students under …", and the user\'s own course overall is highlighted below it.';
-$string['updatedhourly'] = 'Updated hourly.';
+$string['threshold_desc'] = 'Students whose course overall is below this percentage are counted as low under "My students", and a student\'s own course overall below it is marked Low. Teacher figures are marked against the teacher Present threshold of Zoom attendance instead.';
+$string['thresholdmarker'] = 'Threshold: {$a}%';
+$string['updated'] = 'Updated {$a}';
 $string['zoomattendance:addinstance'] = 'Add a new Zoom attendance block';
 $string['zoomattendance:myaddinstance'] = 'Add a new Zoom attendance block to the Dashboard';

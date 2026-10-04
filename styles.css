@@ -1,0 +1,58 @@
+.block_zoomattendance .block_zoomattendance-section + .block_zoomattendance-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, .1);
+}
+
+.block_zoomattendance .block_zoomattendance-title {
+    font-weight: 600;
+}
+
+.block_zoomattendance .block_zoomattendance-title .icon {
+    margin-right: .35rem;
+}
+
+.block_zoomattendance .block_zoomattendance-row {
+    padding: .4rem 0;
+}
+
+.block_zoomattendance .block_zoomattendance-name {
+    min-width: 0;
+    margin-right: .5rem;
+    overflow-wrap: anywhere;
+}
+
+.block_zoomattendance .block_zoomattendance-label {
+    font-weight: 500;
+}
+
+.block_zoomattendance .block_zoomattendance-value .badge .icon {
+    margin-right: .25rem;
+    font-size: inherit;
+    width: auto;
+    height: auto;
+}
+
+/* The bar: a light track, a fill to the percentage and a marker at the threshold. */
+.block_zoomattendance .block_zoomattendance-meter {
+    position: relative;
+    height: 6px;
+    margin-top: .35rem;
+    border-radius: 3px;
+    background-color: rgba(0, 0, 0, .08);
+}
+
+.block_zoomattendance .block_zoomattendance-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+.block_zoomattendance .block_zoomattendance-marker {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 12px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background-color: rgba(0, 0, 0, .45);
+}

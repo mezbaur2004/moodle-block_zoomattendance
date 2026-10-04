@@ -29,6 +29,9 @@ use moodle_url;
 
 /**
  * Renders the block's sections.
+ *
+ * Each percentage is a number plus a thin bar with a marker at the threshold. A value below the
+ * threshold also gets a "Low" label, so it never relies on colour alone.
  */
 class renderer extends \plugin_renderer_base {
     /**
@@ -39,96 +42,229 @@ class renderer extends \plugin_renderer_base {
      */
     public function overview(array $data): string {
         global $USER;
+        $threshold = (float) $data['threshold'];
+        // Teachers are measured against their own, stricter Present threshold.
+        $teacherthreshold = (float) $data['teacherthreshold'];
+        $range = ['fromts' => $data['from'], 'tots' => usergetmidnight($data['to'])];
         $out = '';
+
         if ($data['mine']) {
             $items = [];
             foreach ($data['mine'] as $row) {
-                $items[] = $this->item(
+                $items[] = $this->meter_row(
                     new moodle_url('/local/zoomattendance/user.php', ['course' => $row['courseid'], 'user' => $USER->id]),
                     $this->course_name($row['courseid'], $row['name']),
-                    $this->percentage($row['percentage'], $data['threshold'])
-                );
-            }
-            $out .= $this->section(get_string('mine', 'block_zoomattendance'), $items);
-        }
-        if ($data['students']) {
-            $items = [];
-            foreach ($data['students'] as $row) {
-                $items[] = $this->item(
-                    new moodle_url('/local/zoomattendance/course.php', ['id' => $row['courseid']]),
-                    $this->course_name($row['courseid'], $row['name']),
-                    html_writer::span(
-                        get_string('lowcount', 'block_zoomattendance', (object) ['low' => $row['low'], 'total' => $row['total']]),
-                        $row['low'] ? 'badge bg-warning badge-warning text-dark' : 'badge bg-light badge-light text-dark'
-                    )
+                    '',
+                    $row['percentage'],
+                    $threshold
                 );
             }
             $out .= $this->section(
-                get_string('students', 'block_zoomattendance', format_float($data['threshold'], 0)),
+                'i/user',
+                get_string('mine', 'block_zoomattendance'),
+                get_string('minehelp', 'block_zoomattendance', format_float($threshold, 0)),
                 $items
             );
         }
-        $range = ['fromts' => $data['from'], 'tots' => usergetmidnight($data['to'])];
+
+        if ($data['students']) {
+            $items = [];
+            foreach ($data['students'] as $row) {
+                $items[] = $this->students_row($row);
+            }
+            $out .= $this->section(
+                'i/users',
+                get_string('studentsheading', 'block_zoomattendance'),
+                get_string('studentshelp', 'block_zoomattendance', format_float($threshold, 0)),
+                $items
+            );
+        }
+
         if ($data['teaching']) {
             $items = [];
             foreach ($data['teaching'] as $row) {
-                $items[] = $this->item(
+                $items[] = $this->meter_row(
                     new moodle_url('/local/zoomattendance/teachers.php', ['id' => $row['courseid']] + $range),
                     $this->course_name($row['courseid'], $row['name']),
-                    $this->percentage($row['percentage'], null)
+                    get_string('classescount', 'block_zoomattendance', $row['classes']),
+                    $row['percentage'],
+                    $teacherthreshold
                 );
             }
-            $out .= $this->section(get_string('teaching', 'block_zoomattendance', $data['days']), $items);
+            $out .= $this->section(
+                'i/calendar',
+                get_string('teachingheading', 'block_zoomattendance'),
+                get_string('teachinghelp', 'block_zoomattendance', (object) [
+                    'days' => $data['days'],
+                    'threshold' => format_float($teacherthreshold, 0),
+                ]),
+                $items
+            );
         }
+
         if (!empty($data['teachers']['rows'])) {
             $items = [];
             foreach ($data['teachers']['rows'] as $row) {
-                $items[] = $this->item(
+                $items[] = $this->meter_row(
                     new moodle_url('/local/zoomattendance/teachers.php', ['id' => $row['courseid']] + $range),
-                    s($row['name']) . html_writer::div($this->course_name($row['courseid'], $row['course']), 'small text-muted'),
-                    $this->percentage($row['percentage'], null)
+                    s($row['name']),
+                    $this->course_name($row['courseid'], $row['course']),
+                    $row['percentage'],
+                    $teacherthreshold
                 );
             }
             $all = html_writer::link(
                 new moodle_url('/local/zoomattendance/teachersoverview.php', $range),
-                get_string('allteachers', 'block_zoomattendance', $data['teachers']['total'])
+                get_string('allteachers', 'block_zoomattendance', $data['teachers']['total']),
+                ['class' => 'btn btn-sm btn-outline-secondary mt-2']
             );
-            $out .= $this->section(get_string('teachers', 'block_zoomattendance', $data['days']), $items, $all);
+            $out .= $this->section(
+                'i/report',
+                get_string('teachersheading', 'block_zoomattendance'),
+                get_string('teachershelp', 'block_zoomattendance', (object) [
+                    'days' => $data['days'],
+                    'threshold' => format_float($teacherthreshold, 0),
+                ]),
+                $items,
+                $all
+            );
         }
         return $out;
     }
 
     /**
-     * A titled list.
+     * When the content was built, for the block footer.
      *
-     * @param string $title
-     * @param string[] $items Rendered list items.
-     * @param string $footer Optional link under the list.
+     * @param int $time
      * @return string
      */
-    protected function section(string $title, array $items, string $footer = ''): string {
+    public function updated(int $time): string {
         return html_writer::div(
-            html_writer::tag('h6', s($title), ['class' => 'mb-1'])
-                . html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-1'])
-                . ($footer === '' ? '' : html_writer::div($footer, 'small')),
-            'block_zoomattendance-section mb-3'
+            get_string('updated', 'block_zoomattendance', userdate($time, get_string('strftimedatetimeshort', 'langconfig'))),
+            'text-muted small',
+            ['title' => get_string('refreshes', 'block_zoomattendance')]
         );
     }
 
     /**
-     * One row: a linked label and a value on the right.
+     * A section: icon and title, an optional hint, its rows and an optional footer.
+     *
+     * @param string $icon Core pix identifier.
+     * @param string $title
+     * @param string $hint Plain text under the title, or ''.
+     * @param string[] $items Rendered rows.
+     * @param string $footer HTML, or ''.
+     * @return string
+     */
+    protected function section(string $icon, string $title, string $hint, array $items, string $footer = ''): string {
+        $heading = html_writer::tag(
+            'h6',
+            $this->output->pix_icon($icon, '', 'moodle', ['class' => 'icon']) . s($title),
+            ['class' => 'block_zoomattendance-title mb-0']
+        );
+        return html_writer::div(
+            $heading
+                . ($hint === '' ? '' : html_writer::div(s($hint), 'text-muted small'))
+                . html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-0 mt-2'])
+                . $footer,
+            'block_zoomattendance-section'
+        );
+    }
+
+    /**
+     * A row with a percentage bar.
      *
      * @param moodle_url $url
      * @param string $label HTML.
-     * @param string $value HTML.
+     * @param string $sublabel HTML under the label, or ''.
+     * @param float|null $percentage
+     * @param float $threshold
      * @return string
      */
-    protected function item(moodle_url $url, string $label, string $value): string {
-        return html_writer::tag(
-            'li',
-            html_writer::link($url, $label, ['class' => 'me-2 mr-2']) . html_writer::span($value, 'text-nowrap'),
-            ['class' => 'd-flex justify-content-between align-items-start py-1 border-bottom']
+    protected function meter_row(moodle_url $url, string $label, string $sublabel, ?float $percentage, float $threshold): string {
+        $low = $percentage !== null && $percentage < $threshold;
+        $value = $percentage === null ? '–' : format_float($percentage, 1) . '%';
+        $top = html_writer::div(
+            html_writer::div(
+                html_writer::link($url, $label, ['class' => 'block_zoomattendance-label'])
+                    . ($sublabel === '' ? '' : html_writer::div($sublabel, 'text-muted small')),
+                'block_zoomattendance-name'
+            )
+            . html_writer::div(
+                ($low ? $this->low_label() : '')
+                    . html_writer::tag('strong', $value, ['class' => $low ? 'text-danger' : '']),
+                'block_zoomattendance-value text-nowrap'
+            ),
+            'd-flex justify-content-between align-items-start'
         );
+        return html_writer::tag('li', $top . $this->meter($percentage, $threshold, $low), ['class' => 'block_zoomattendance-row']);
+    }
+
+    /**
+     * A row with a course's count of students below the threshold.
+     *
+     * @param array $row With courseid, name, low and total.
+     * @return string
+     */
+    protected function students_row(array $row): string {
+        if ($row['low']) {
+            $status = html_writer::span(
+                $this->output->pix_icon('i/warning', '', 'moodle', ['class' => 'icon'])
+                    . get_string('lowcount', 'block_zoomattendance', (object) ['low' => $row['low'], 'total' => $row['total']]),
+                'badge bg-warning badge-warning text-dark'
+            );
+        } else {
+            $status = html_writer::span(
+                $this->output->pix_icon('i/checkedcircle', '', 'moodle', ['class' => 'icon'])
+                    . get_string('allabove', 'block_zoomattendance', $row['total']),
+                'badge bg-light badge-light text-dark border'
+            );
+        }
+        $top = html_writer::div(
+            html_writer::link(
+                new moodle_url('/local/zoomattendance/course.php', ['id' => $row['courseid']]),
+                $this->course_name($row['courseid'], $row['name']),
+                ['class' => 'block_zoomattendance-label block_zoomattendance-name']
+            )
+            . html_writer::div($status, 'block_zoomattendance-value text-nowrap'),
+            'd-flex justify-content-between align-items-center'
+        );
+        return html_writer::tag('li', $top, ['class' => 'block_zoomattendance-row']);
+    }
+
+    /**
+     * The "Low" label, so low values never rely on colour alone.
+     *
+     * @return string
+     */
+    protected function low_label(): string {
+        return html_writer::span(get_string('low', 'block_zoomattendance'), 'badge bg-danger badge-danger me-1 mr-1');
+    }
+
+    /**
+     * A thin bar filled to the percentage, with a marker at the threshold.
+     *
+     * @param float|null $percentage
+     * @param float $threshold
+     * @param bool $low
+     * @return string
+     */
+    protected function meter(?float $percentage, float $threshold, bool $low): string {
+        $width = $percentage === null ? 0 : max(0, min(100, $percentage));
+        $fill = html_writer::div('', 'block_zoomattendance-fill ' . ($low ? 'bg-danger' : 'bg-primary'), [
+            'style' => 'width: ' . round($width, 1) . '%;',
+        ]);
+        $marker = html_writer::div('', 'block_zoomattendance-marker', [
+            'style' => 'left: ' . round($threshold, 1) . '%;',
+            'title' => get_string('thresholdmarker', 'block_zoomattendance', format_float($threshold, 0)),
+        ]);
+        return html_writer::div($fill . $marker, 'block_zoomattendance-meter', [
+            'role' => 'progressbar',
+            'aria-valuemin' => 0,
+            'aria-valuemax' => 100,
+            'aria-valuenow' => round($width, 1),
+            'aria-label' => $percentage === null ? '–' : format_float($percentage, 1) . '%',
+        ]);
     }
 
     /**
@@ -140,22 +276,5 @@ class renderer extends \plugin_renderer_base {
      */
     protected function course_name(int $courseid, string $name): string {
         return format_string($name, true, ['context' => \context_course::instance($courseid)]);
-    }
-
-    /**
-     * A percentage, highlighted when below the threshold.
-     *
-     * @param float|null $percentage
-     * @param float|null $threshold
-     * @return string
-     */
-    protected function percentage(?float $percentage, ?float $threshold): string {
-        if ($percentage === null) {
-            return '–';
-        }
-        $text = format_float($percentage, 1) . '%';
-        return ($threshold !== null && $percentage < $threshold)
-            ? html_writer::tag('strong', $text, ['class' => 'text-danger'])
-            : html_writer::tag('strong', $text);
     }
 }

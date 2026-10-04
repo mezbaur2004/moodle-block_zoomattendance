@@ -144,9 +144,15 @@ final class content_test extends \advanced_testcase {
         $this->assertStringContainsString('My attendance', $html);
         $this->assertStringContainsString('40.0%', $html);
         $this->assertStringContainsString('text-danger', $html);
-        $this->assertStringContainsString('Lowest teacher attendance (last 30 days)', $html);
+        $this->assertStringContainsString('>Low<', $html);
+        $this->assertStringContainsString('width: 40%;', $html);
+        $this->assertStringContainsString('left: 50%;', $html);
+        $this->assertStringContainsString('Teacher attendance', $html);
+        $this->assertStringContainsString('Last 30 days, lowest first. The line marks 90%.', $html);
+        $this->assertStringContainsString('left: 90%;', $html);
         $this->assertStringContainsString('All teachers (2)', $html);
         $this->assertStringContainsString('/local/zoomattendance/teachersoverview.php', $html);
+        $this->assertStringContainsString('Updated', $PAGE->get_renderer('block_zoomattendance')->updated($data['built']));
     }
 
     public function test_nothing_to_show_and_cache(): void {

@@ -23,11 +23,14 @@ local_zoomattendance, so the block always agrees with its reports.
 | Section | Shown to | Content |
 |---|---|---|
 | My attendance | Students | Course overall % per course, highlighted below the threshold, linked to their attendance page |
-| Students under 50% | Teachers, Coordinators | Per course: how many students are below the threshold, linked to the course report. In separate-groups courses, a user without *Access all groups* counts only their own groups |
-| My teaching (last 30 days) | Teachers, Coordinators | Their own teaching attendance per course (teacher tracking on) |
-| Lowest teacher attendance (last 30 days) | Managers | The five teachers with the lowest attendance, and a link to the all-courses report (teacher tracking on) |
+| My students | Teachers, Coordinators | Per course: how many students are below the threshold, linked to the course report. In separate-groups courses, a user without *Access all groups* counts only their own groups |
+| My teaching | Teachers, Coordinators | Their own teaching attendance per course (teacher tracking on) |
+| Teacher attendance | Managers | The five teachers with the lowest attendance, and a link to the all-courses report (teacher tracking on) |
 
-Users with nothing to see do not see the block.
+Each percentage has a thin bar with a line at the threshold, and a value below it is also
+labelled *Low*, so it never relies on colour alone. Student figures use the block's threshold
+(50 % by default); teacher figures use the teacher Present threshold of local_zoomattendance
+(90 % by default). Users with nothing to see do not see the block.
 
 ## Settings
 
