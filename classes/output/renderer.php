@@ -278,7 +278,50 @@ class renderer extends \plugin_renderer_base {
             . html_writer::div($status, 'block_zoomattendance-value text-nowrap'),
             'd-flex justify-content-between align-items-center'
         );
-        return html_writer::tag('li', $top, ['class' => 'block_zoomattendance-row']);
+        $last = empty($row['last']) ? '' : $this->last_class($row['last']);
+        return html_writer::tag('li', $top . $last, ['class' => 'block_zoomattendance-row']);
+    }
+
+    /**
+     * Out of the students expected at a course's latest class, how many were present, partial and
+     * absent: as local_zoomattendance shows it, with a bar split into the three colours.
+     *
+     * @param array $last With cmid, occurrenceid, time, name and counts.
+     * @return string
+     */
+    protected function last_class(array $last): string {
+        $counts = $last['counts'];
+        $a = (object) [
+            'expected' => $counts['expected'],
+            'present' => $counts['present'],
+            'partial' => $counts['partial'],
+            'absent' => $counts['absent'],
+        ];
+        $segments = '';
+        foreach (['present' => 'success', 'partial' => 'warning', 'absent' => 'danger'] as $state => $variant) {
+            if ($counts[$state]) {
+                $segments .= html_writer::div('', 'bg-' . $variant, [
+                    'style' => 'width: ' . round(100 * $counts[$state] / $counts['expected'], 1) . '%;',
+                ]);
+            }
+        }
+        $when = html_writer::link(
+            new moodle_url('/local/zoomattendance/report.php', ['id' => $last['cmid'], 'occurrence' => $last['occurrenceid']]),
+            get_string('lastclass', 'block_zoomattendance', (object) [
+                'name' => format_string($last['name']),
+                'date' => userdate($last['time'], get_string('strftimedatetimeshort', 'langconfig')),
+            ]),
+            ['class' => 'text-muted']
+        );
+        $present = html_writer::tag('strong', s(get_string('headcount_present', 'local_zoomattendance', $a)));
+        $rest = html_writer::span(s(get_string('headcount_rest', 'local_zoomattendance', $a)), 'text-muted');
+        return html_writer::div(
+            html_writer::div($when)
+                . html_writer::div($present . ' · ' . $rest)
+                . html_writer::div($segments, 'block_zoomattendance-split', ['aria-hidden' => 'true']),
+            'block_zoomattendance-lastclass small',
+            ['title' => get_string('headcount_full', 'local_zoomattendance', $a)]
+        );
     }
 
     /**
