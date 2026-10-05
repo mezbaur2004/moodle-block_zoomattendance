@@ -27,6 +27,7 @@ namespace block_zoomattendance\local;
 use local_zoomattendance\local\course_summary;
 use local_zoomattendance\local\headcount;
 use local_zoomattendance\local\settings;
+use local_zoomattendance\local\teacher_access;
 use local_zoomattendance\local\teacher_overview;
 
 /**
@@ -38,7 +39,8 @@ use local_zoomattendance\local\teacher_overview;
  * - students: per course where they view reports, how many students are low (below the Partial
  *   threshold), and out of the expected students how many attended the latest class;
  * - teaching: their own teaching attendance over the recent period, per course;
- * - teachers: the teachers with the lowest attendance, where they view every teacher.
+ * - teachers: the non-editing teachers with the lowest attendance, for managers (every course)
+ *   and coordinators (their own courses).
  *
  * The content is cached per user for up to an hour: attendance only changes when the hourly
  * sync runs, and the dashboard is opened on every login.
@@ -283,21 +285,29 @@ class content {
     }
 
     /**
-     * The teachers with the lowest attendance in the period, where the user views every teacher.
+     * The non-editing teachers with the lowest attendance in the period, for users who view them:
+     * managers see every course's, coordinators those of their own courses. Coordinators (anyone
+     * who can edit the course) are left out, by local_zoomattendance's plain rule.
      *
      * @param int $userid
      * @param int $from
      * @param int $to
-     * @return array|null With rows (each with name, courseid, course, percentage and joined) and total,
-     *     or null when the user views no teacher reports.
+     * @return array|null With rows (each with name, courseid, course, percentage and joined), total
+     *     and mine (whether the list covers only the user's own courses), or null when the user
+     *     views no other teacher.
      */
     protected static function teachers(int $userid, int $from, int $to): ?array {
-        if (!teacher_overview::has_courses($userid, 'local/zoomattendance:viewteacherreports')) {
+        $all = teacher_overview::has_courses($userid, 'local/zoomattendance:viewteacherreports');
+        if (!$all && !teacher_overview::has_courses($userid, 'local/zoomattendance:viewnoneditingteachers')) {
             return null;
         }
         $rows = [];
-        foreach (teacher_overview::rows($userid, false, $from, $to) as $row) {
+        foreach (teacher_overview::rows($userid, !$all, $from, $to) as $row) {
             if (!$row->overall || $row->overall->percentage() === null) {
+                continue;
+            }
+            // Non-editing teachers only.
+            if (teacher_access::is_editing(\context_course::instance($row->course->id), (int) $row->user->id)) {
                 continue;
             }
             $rows[] = [
@@ -311,6 +321,6 @@ class content {
         usort($rows, function ($a, $b) {
             return ($a['percentage'] <=> $b['percentage']) ?: strcmp($a['name'], $b['name']);
         });
-        return ['rows' => array_slice($rows, 0, self::LIMIT), 'total' => count($rows)];
+        return ['rows' => array_slice($rows, 0, self::LIMIT), 'total' => count($rows), 'mine' => !$all];
     }
 }
