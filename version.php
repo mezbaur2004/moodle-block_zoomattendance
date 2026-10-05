@@ -25,10 +25,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'block_zoomattendance';
-$plugin->version = 2026100601;
+$plugin->version = 2026100602;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.4.2';
+$plugin->release = '0.4.3';
 $plugin->dependencies = [
     'local_zoomattendance' => 2026100600, // 0.3.6, for present overall in the class headcount.
 ];
