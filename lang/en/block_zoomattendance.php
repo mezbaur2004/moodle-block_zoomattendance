@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['allabove'] = 'All {$a} on track';
-$string['allteachers'] = 'All teachers ({$a}) ›';
+$string['allteachers'] = 'All non-editing teachers ({$a}) ›';
 $string['cachedef_content'] = 'Each user\'s Zoom attendance block content';
 $string['classescount'] = 'Classes: {$a}';
 $string['colours_desc'] = 'Bars are coloured as in Zoom attendance: green from the Present threshold, orange from the Partial threshold and red below, with a line at the Present threshold. Student figures use its site defaults and teacher figures its teacher thresholds, set under Site administration > Plugins > Local plugins > Zoom attendance. Students below the Partial threshold are counted as low.';
@@ -44,7 +44,7 @@ $string['refreshes'] = 'Refreshes hourly, after each attendance sync.';
 $string['studentsheading'] = 'My students';
 $string['studentshelp'] = 'Students under {$a}% course overall';
 $string['teachersheading'] = 'Teacher attendance';
-$string['teachershelp'] = 'Last {$a->days} days, lowest first. Green from {$a->present}%, orange from {$a->partial}%, red below.';
+$string['teachershelp'] = 'Non-editing teachers, last {$a->days} days, lowest first. Green from {$a->present}%, orange from {$a->partial}%, red below.';
 $string['teachingheading'] = 'My teaching';
 $string['teachinghelp'] = 'Last {$a->days} days. Green from {$a->present}%, orange from {$a->partial}%, red below.';
 $string['thresholdmarker'] = 'The line marks the Present threshold, {$a}%.';

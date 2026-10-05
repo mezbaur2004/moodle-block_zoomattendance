@@ -112,8 +112,10 @@ class renderer extends \plugin_renderer_base {
                     $teachers
                 );
             }
+            // Coordinators see the list of their own courses.
+            $mine = empty($data['teachers']['mine']) ? [] : ['mine' => 1];
             $all = html_writer::link(
-                new moodle_url('/local/zoomattendance/teachersoverview.php', $range),
+                new moodle_url('/local/zoomattendance/teachersoverview.php', $range + $mine),
                 get_string('allteachers', 'block_zoomattendance', $data['teachers']['total']),
                 ['class' => 'btn btn-sm btn-outline-secondary mt-2']
             );

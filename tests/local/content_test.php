@@ -104,8 +104,10 @@ final class content_test extends \advanced_testcase {
         $this->assertSame(1, $data['teaching'][0]['classes']);
         $this->assertEqualsWithDelta(100.0, $data['teaching'][0]['joined'], 0.01);
         $this->assertSame(1, $data['teaching'][0]['joinedclasses']);
-        // Coordinators see their Teachers on the reports, not in the managers' section.
-        $this->assertNull($data['teachers']);
+        // Coordinators see the non-editing teachers of their own courses, never coordinators.
+        $this->assertSame(1, $data['teachers']['total']);
+        $this->assertSame(fullname($this->users['teacher']), $data['teachers']['rows'][0]['name']);
+        $this->assertTrue($data['teachers']['mine']);
 
         // Low means below the Partial threshold of Zoom attendance (50 % by default; Low has 25 %).
         set_config('latepct', 20, 'local_zoomattendance');
@@ -136,10 +138,11 @@ final class content_test extends \advanced_testcase {
     public function test_manager_sees_lowest_teachers_first(): void {
         $this->setUser($this->users['manager']);
         $data = content::build();
-        $this->assertSame(2, $data['teachers']['total']);
+        // Non-editing teachers only: the coordinator is left out.
+        $this->assertSame(1, $data['teachers']['total']);
         $this->assertSame(fullname($this->users['teacher']), $data['teachers']['rows'][0]['name']);
         $this->assertEqualsWithDelta(0.0, $data['teachers']['rows'][0]['percentage'], 0.01);
-        $this->assertSame(fullname($this->users['coordinator']), $data['teachers']['rows'][1]['name']);
+        $this->assertFalse($data['teachers']['mine']);
         $this->assertFalse(content::is_empty($data));
 
         // Without teacher tracking there are no teacher sections.
@@ -152,9 +155,11 @@ final class content_test extends \advanced_testcase {
         $this->setUser($this->users['manager']);
         $data = content::build();
         $data['mine'] = [['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'percentage' => 40.0]];
-        // The manager is not enrolled: take the students section from the coordinator.
+        // The manager is not enrolled: take the students and teaching sections from the coordinator.
         $this->setUser($this->users['coordinator']);
-        $data['students'] = content::build()['students'];
+        $coordinator = content::build();
+        $data['students'] = $coordinator['students'];
+        $data['teaching'] = $coordinator['teaching'];
         $html = $PAGE->get_renderer('block_zoomattendance')->overview($data);
         $this->assertStringContainsString('My attendance', $html);
         $this->assertStringContainsString('Course overall. Green from 75%, orange from 50%, red below.', $html);
@@ -166,12 +171,14 @@ final class content_test extends \advanced_testcase {
         // The line marks the student Present threshold (75 %) and the teacher one (90 %).
         $this->assertStringContainsString('left: 75%;', $html);
         $this->assertStringContainsString('Teacher attendance', $html);
-        $this->assertStringContainsString('Last 30 days, lowest first. Green from 90%, orange from 10%, red below.', $html);
+        $hint = 'Non-editing teachers, last 30 days, lowest first. Green from 90%, orange from 10%, red below.';
+        $this->assertStringContainsString($hint, $html);
         $this->assertStringContainsString('left: 90%;', $html);
-        // The coordinator at 100 % is green, and joined their one class.
+        // The coordinator's own teaching at 100 % is green, and they joined their one class.
         $this->assertStringContainsString('bg-success" style="width: 100%;"', $html);
         $this->assertStringContainsString('When joined: 100.0%', $html);
-        $this->assertStringContainsString('All teachers (2)', $html);
+        $this->assertStringContainsString('All non-editing teachers (1)', $html);
+        $this->assertStringNotContainsString('mine=1', $html);
         // The latest class: present of expected, with a bar split by status.
         $this->assertStringContainsString('Last class: ', $html);
         $this->assertStringContainsString('1 of 2 present', $html);
