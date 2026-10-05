@@ -6,7 +6,7 @@ It shows each user their Zoom attendance at a glance, as far as their role allow
 ## Requirements
 
 - Moodle 4.1 or later
-- local_zoomattendance 0.3.4 (`2026100401`) or later
+- local_zoomattendance 0.4.0 (`2026100602`) or later
 
 ## Installation
 
@@ -48,9 +48,15 @@ and the reports always agree.
 
 ## Performance
 
-Attendance changes only when local_zoomattendance's hourly sync runs, so each user's block
-content is cached for up to an hour. The first dashboard view after that builds it again.
-The student sections cover the user's enrolled courses only.
+Each user's block content is cached for up to an hour, and rebuilt as soon as
+local_zoomattendance's data changes (a sync, an exclusion, an enrolment), so it never lags behind
+the reports. Its figures come from local_zoomattendance's own cached summaries. The student
+sections cover the user's enrolled courses only.
+
+## Moodle app
+
+The block also shows on the Moodle app's dashboard, with the same sections as plain rows. The
+site needs mobile services enabled.
 
 ## Privacy
 

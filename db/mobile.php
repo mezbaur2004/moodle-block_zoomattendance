@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for block_zoomattendance.
+ * Moodle app support for block_zoomattendance.
  *
  * @package    block_zoomattendance
  * @copyright  2026 Mezbaur Are Rafi
@@ -24,11 +24,22 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'block_zoomattendance';
-$plugin->version = 2026100603;
-$plugin->requires = 2022112800; // Moodle 4.1.
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.5.0';
-$plugin->dependencies = [
-    'local_zoomattendance' => 2026100602, // 0.4.0, for the data version.
+$addons = [
+    'block_zoomattendance' => [
+        'handlers' => [
+            // The block on the app's dashboard, with the same sections as on the web.
+            'zoomattendance' => [
+                'delegate' => 'CoreBlockDelegate',
+                'method' => 'mobile_block_view',
+                'displaydata' => [
+                    'title' => 'pluginname',
+                    'class' => 'block_zoomattendance',
+                    'type' => 'template',
+                ],
+            ],
+        ],
+        'lang' => [
+            ['pluginname', 'block_zoomattendance'],
+        ],
+    ],
 ];

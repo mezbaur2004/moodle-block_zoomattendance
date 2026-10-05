@@ -25,6 +25,7 @@
 namespace block_zoomattendance\local;
 
 use local_zoomattendance\local\course_summary;
+use local_zoomattendance\local\data_version;
 use local_zoomattendance\local\headcount;
 use local_zoomattendance\local\settings;
 use local_zoomattendance\local\teacher_access;
@@ -42,8 +43,8 @@ use local_zoomattendance\local\teacher_overview;
  * - teachers: the non-editing teachers with the lowest attendance, for managers (every course)
  *   and coordinators (their own courses).
  *
- * The content is cached per user for up to an hour: attendance only changes when the hourly
- * sync runs, and the dashboard is opened on every login.
+ * The content is cached per user for up to an hour, and rebuilt sooner when Zoom attendance's
+ * data changes (a sync, an exclusion, an enrolment), so it never lags behind the reports.
  */
 class content {
     /** @var int Seconds a user's content is kept. */
@@ -52,19 +53,21 @@ class content {
     public const LIMIT = 5;
 
     /**
-     * The current user's content, from the cache when fresh.
+     * The current user's content, from the cache while it is under an hour old and Zoom
+     * attendance's data has not changed since.
      *
      * @return array See build().
      */
     public static function get(): array {
         global $USER;
         $cache = \cache::make('block_zoomattendance', 'content');
+        $version = data_version::get();
         $entry = $cache->get((int) $USER->id);
-        if (is_array($entry) && $entry['time'] > time() - self::CACHE_SECS) {
+        if (is_array($entry) && $entry['time'] > time() - self::CACHE_SECS && ($entry['version'] ?? '') === $version) {
             return $entry['data'];
         }
         $data = self::build();
-        $cache->set((int) $USER->id, ['time' => time(), 'data' => $data]);
+        $cache->set((int) $USER->id, ['time' => time(), 'version' => $version, 'data' => $data]);
         return $data;
     }
 
