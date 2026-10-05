@@ -93,8 +93,12 @@ final class content_test extends \advanced_testcase {
         $this->setUser($this->users['coordinator']);
         $data = content::build();
         $this->assertSame([], $data['mine']);
-        $expected = [['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'low' => 1, 'total' => 2]];
-        $this->assertSame($expected, $data['students']);
+        $row = $data['students'][0];
+        $expected = ['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'low' => 1, 'total' => 2];
+        $this->assertSame($expected, array_diff_key($row, ['last' => 1]));
+        // The latest class: out of 2 expected students, Full was present and Low absent.
+        $this->assertSame(['expected' => 2, 'present' => 1, 'partial' => 0, 'absent' => 1], $row['last']['counts']);
+        $this->assertSame('Zoom', substr($row['last']['name'], 0, 4));
         $this->assertCount(1, $data['teaching']);
         $this->assertEqualsWithDelta(100.0, $data['teaching'][0]['percentage'], 0.01);
         $this->assertSame(1, $data['teaching'][0]['classes']);
@@ -121,6 +125,7 @@ final class content_test extends \advanced_testcase {
         $data = content::build();
         $this->assertSame(1, $data['students'][0]['total']);
         $this->assertSame(1, $data['students'][0]['low']);
+        $this->assertSame(['expected' => 1, 'present' => 0, 'partial' => 0, 'absent' => 1], $data['students'][0]['last']['counts']);
         // Absent from the only class, so nothing for "When joined".
         $this->assertEqualsWithDelta(0.0, $data['teaching'][0]['percentage'], 0.01);
         $this->assertNull($data['teaching'][0]['joined']);
@@ -146,6 +151,9 @@ final class content_test extends \advanced_testcase {
         $this->setUser($this->users['manager']);
         $data = content::build();
         $data['mine'] = [['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'percentage' => 40.0]];
+        // The manager is not enrolled: take the students section from the coordinator.
+        $this->setUser($this->users['coordinator']);
+        $data['students'] = content::build()['students'];
         $html = $PAGE->get_renderer('block_zoomattendance')->overview($data);
         $this->assertStringContainsString('My attendance', $html);
         $this->assertStringContainsString('Course overall. Green from 75%, orange from 50%, red below.', $html);
@@ -163,6 +171,12 @@ final class content_test extends \advanced_testcase {
         $this->assertStringContainsString('bg-success" style="width: 100%;"', $html);
         $this->assertStringContainsString('When joined: 100.0%', $html);
         $this->assertStringContainsString('All teachers (2)', $html);
+        // The latest class: present of expected, with a bar split by status.
+        $this->assertStringContainsString('Last class: ', $html);
+        $this->assertStringContainsString('1 of 2 present', $html);
+        $this->assertStringContainsString('0 partial · 1 absent', $html);
+        $this->assertStringContainsString('block_zoomattendance-split', $html);
+        $this->assertStringContainsString('/local/zoomattendance/report.php?id=', $html);
         $this->assertStringContainsString('/local/zoomattendance/teachersoverview.php', $html);
         $this->assertStringContainsString('Updated', $PAGE->get_renderer('block_zoomattendance')->updated($data['built']));
     }

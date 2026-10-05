@@ -25,6 +25,7 @@
 namespace block_zoomattendance\local;
 
 use local_zoomattendance\local\course_summary;
+use local_zoomattendance\local\headcount;
 use local_zoomattendance\local\settings;
 use local_zoomattendance\local\teacher_overview;
 
@@ -35,7 +36,7 @@ use local_zoomattendance\local\teacher_overview;
  * block always agrees with its reports. Sections:
  * - mine: the user's own course overall, per course where they are an expected participant;
  * - students: per course where they view reports, how many students are low (below the Partial
- *   threshold);
+ *   threshold), and out of the expected students how many attended the latest class;
  * - teaching: their own teaching attendance over the recent period, per course;
  * - teachers: the teachers with the lowest attendance, where they view every teacher.
  *
@@ -180,33 +181,26 @@ class content {
     }
 
     /**
-     * Per course where the user views reports, the students below the Partial threshold. A user who
-     * cannot see all groups of a separate-groups course only counts their own groups.
+     * Per course where the user views reports, the students below the Partial threshold, and how
+     * many of the expected students attended its latest class. A user who cannot see all groups of
+     * a separate-groups course only counts their own groups.
      *
      * @param int $userid
      * @param \stdClass[] $courses
-     * @return array[] Each with courseid, name, low and total; most low students first.
+     * @return array[] Each with courseid, name, low, total and last (the latest class: time, name
+     *     and counts from local_zoomattendance's headcount, or null); most low students first.
      */
     protected static function students(int $userid, array $courses): array {
         $threshold = self::student_thresholds()['partial'];
         $rows = [];
         foreach ($courses as $course) {
-            $context = \context_course::instance($course->id);
-            if (!has_capability('local/zoomattendance:viewreports', $context)) {
+            $visible = headcount::visible_cells($course);
+            if (!$visible) {
                 continue;
             }
-            $groupids = [0];
-            if (
-                groups_get_course_groupmode($course) == SEPARATEGROUPS
-                    && !has_capability('moodle/site:accessallgroups', $context)
-            ) {
-                $groupids = array_keys(groups_get_all_groups($course->id, $userid));
-            }
             $percentages = [];
-            foreach ($groupids as $groupid) {
-                foreach (course_summary::build($course, (int) $groupid)->overall as $id => $overall) {
-                    $percentages[$id] = $overall->percentage();
-                }
+            foreach ($visible['overall'] as $id => $overall) {
+                $percentages[$id] = $overall->percentage();
             }
             $percentages = array_filter($percentages, function ($percentage) {
                 return $percentage !== null;
@@ -217,12 +211,46 @@ class content {
             $low = count(array_filter($percentages, function ($percentage) use ($threshold) {
                 return $percentage < $threshold;
             }));
-            $rows[] = ['courseid' => (int) $course->id, 'name' => $course->fullname, 'low' => $low, 'total' => count($percentages)];
+            $rows[] = [
+                'courseid' => (int) $course->id,
+                'name' => $course->fullname,
+                'low' => $low,
+                'total' => count($percentages),
+                'last' => self::last_class($visible['summary'], headcount::from_cells($visible['cells'])),
+            ];
         }
         usort($rows, function ($a, $b) {
             return ($b['low'] <=> $a['low']) ?: strcmp($a['name'], $b['name']);
         });
         return array_slice($rows, 0, self::LIMIT);
+    }
+
+    /**
+     * The latest class with expected students, and its headcount.
+     *
+     * @param course_summary|null $summary
+     * @param array[] $counts occurrence id => counts, from headcount.
+     * @return array|null With cmid, occurrenceid, time, name (the activity) and counts.
+     */
+    protected static function last_class(?course_summary $summary, array $counts): ?array {
+        $last = null;
+        foreach ($summary ? $summary->activities : [] as $activity) {
+            foreach ($activity->columns as $occurrenceid => $occurrence) {
+                if (empty($counts[$occurrenceid]['expected'])) {
+                    continue;
+                }
+                if (!$last || $occurrence->timestart > $last['time']) {
+                    $last = [
+                        'cmid' => (int) $activity->cm->id,
+                        'occurrenceid' => (int) $occurrenceid,
+                        'time' => (int) $occurrence->timestart,
+                        'name' => $activity->cm->name,
+                        'counts' => $counts[$occurrenceid],
+                    ];
+                }
+            }
+        }
+        return $last;
     }
 
     /**

@@ -23,7 +23,7 @@ local_zoomattendance, so the block always agrees with its reports.
 | Section | Shown to | Content |
 |---|---|---|
 | My attendance | Students | Course overall % per course, coloured by threshold, linked to their attendance page |
-| My students | Teachers, Coordinators | Per course: how many students are low (below the Partial threshold), linked to the course report. In separate-groups courses, a user without *Access all groups* counts only their own groups |
+| My students | Teachers, Coordinators | Per course: how many students are low (below the Partial threshold), linked to the course report, and out of the expected students how many were present, partial and absent at the latest class ("15 of 18 present"), linked to that class. In separate-groups courses, a user without *Access all groups* counts only their own groups |
 | My teaching | Teachers, Coordinators | Their own teaching attendance per course (teacher tracking on) |
 | Teacher attendance | Managers | The five teachers with the lowest attendance, and a link to the all-courses report (teacher tracking on) |
 

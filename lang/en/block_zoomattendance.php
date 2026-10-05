@@ -32,6 +32,7 @@ $string['colours_desc'] = 'Bars are coloured as in Zoom attendance: green from t
 $string['days'] = 'Teacher period (days)';
 $string['days_desc'] = 'The teacher sections cover classes from this many days ago until today.';
 $string['joinedof'] = '({$a->joined} of {$a->classes} joined)';
+$string['lastclass'] = 'Last class: {$a->name}, {$a->date}';
 $string['low'] = 'Low';
 $string['lowcount'] = '{$a->low} of {$a->total} low';
 $string['mine'] = 'My attendance';
