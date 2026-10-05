@@ -193,14 +193,19 @@ final class content_test extends \advanced_testcase {
         $this->setUser($this->users['outsider']);
         $this->assertTrue(content::is_empty(content::build()));
 
-        // The content is cached per user until it is an hour old.
+        // The content is cached per user until it is an hour old or Zoom attendance's data changes.
         $this->setUser($this->users['full']);
         $first = content::get();
         set_config('latepct', 10, 'local_zoomattendance');
         $this->assertSame($first, content::get());
-        $cache = \cache::make('block_zoomattendance', 'content');
-        $cache->set((int) $this->users['full']->id, ['time' => time() - content::CACHE_SECS - 1, 'data' => $first]);
+        \local_zoomattendance\local\data_version::bump();
         $this->assertSame(10.0, content::get()['thresholds']['partial']);
+
+        set_config('latepct', 20, 'local_zoomattendance');
+        $cache = \cache::make('block_zoomattendance', 'content');
+        $entry = $cache->get((int) $this->users['full']->id);
+        $cache->set((int) $this->users['full']->id, ['time' => time() - content::CACHE_SECS - 1] + $entry);
+        $this->assertSame(20.0, content::get()['thresholds']['partial']);
     }
 
     public function test_colours_match_zoom_attendance(): void {
@@ -215,5 +220,23 @@ final class content_test extends \advanced_testcase {
         $this->assertSame(['present' => 90.0, 'partial' => 10.0], $teachers);
         $this->assertSame('warning', $renderer::variant(65.8, $teachers));
         $this->assertSame('danger', $renderer::variant(5.0, $teachers));
+    }
+
+    public function test_app_view_lists_the_same_sections(): void {
+        $this->setUser($this->users['coordinator']);
+        $view = \block_zoomattendance\output\mobile::mobile_block_view([]);
+        $this->assertSame('main', $view['templates'][0]['id']);
+        $sections = json_decode($view['otherdata']['sections']);
+        $titles = array_column($sections, 'title');
+        $this->assertSame(['My students', 'My teaching', 'Teacher attendance'], $titles);
+        // The latest class of the course, with its headcount.
+        $this->assertStringContainsString('1 of 2 present', $sections[0]->rows[0]->sub);
+        $this->assertSame('100.0%', $sections[1]->rows[0]->value);
+        $this->assertSame('success', $sections[1]->rows[0]->color);
+        // Text reaches the app as data, never inside the template.
+        $this->assertStringNotContainsString('Spoken English', $view['templates'][0]['html']);
+
+        $this->setUser($this->users['outsider']);
+        $this->assertSame('[]', \block_zoomattendance\output\mobile::mobile_block_view([])['otherdata']['sections']);
     }
 }
