@@ -97,7 +97,7 @@ final class content_test extends \advanced_testcase {
         $expected = ['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'low' => 1, 'total' => 2];
         $this->assertSame($expected, array_diff_key($row, ['last' => 1]));
         // The latest class: out of 2 expected students, Full was present and Low absent.
-        $this->assertSame(['expected' => 2, 'present' => 1, 'partial' => 0, 'absent' => 1], $row['last']['counts']);
+        $this->assertSame(['expected' => 2, 'overall' => 1, 'present' => 1, 'partial' => 0, 'absent' => 1], $row['last']['counts']);
         $this->assertSame('Zoom', substr($row['last']['name'], 0, 4));
         $this->assertCount(1, $data['teaching']);
         $this->assertEqualsWithDelta(100.0, $data['teaching'][0]['percentage'], 0.01);
@@ -125,7 +125,8 @@ final class content_test extends \advanced_testcase {
         $data = content::build();
         $this->assertSame(1, $data['students'][0]['total']);
         $this->assertSame(1, $data['students'][0]['low']);
-        $this->assertSame(['expected' => 1, 'present' => 0, 'partial' => 0, 'absent' => 1], $data['students'][0]['last']['counts']);
+        $counts = ['expected' => 1, 'overall' => 0, 'present' => 0, 'partial' => 0, 'absent' => 1];
+        $this->assertSame($counts, $data['students'][0]['last']['counts']);
         // Absent from the only class, so nothing for "When joined".
         $this->assertEqualsWithDelta(0.0, $data['teaching'][0]['percentage'], 0.01);
         $this->assertNull($data['teaching'][0]['joined']);
@@ -174,7 +175,7 @@ final class content_test extends \advanced_testcase {
         // The latest class: present of expected, with a bar split by status.
         $this->assertStringContainsString('Last class: ', $html);
         $this->assertStringContainsString('1 of 2 present', $html);
-        $this->assertStringContainsString('0 partial · 1 absent', $html);
+        $this->assertStringContainsString('1 present + 0 partial · 1 absent', $html);
         $this->assertStringContainsString('block_zoomattendance-split', $html);
         $this->assertStringContainsString('/local/zoomattendance/report.php?id=', $html);
         $this->assertStringContainsString('/local/zoomattendance/teachersoverview.php', $html);

@@ -283,20 +283,16 @@ class renderer extends \plugin_renderer_base {
     }
 
     /**
-     * Out of the students expected at a course's latest class, how many were present, partial and
-     * absent: as local_zoomattendance shows it, with a bar split into the three colours.
+     * Out of the students expected at a course's latest class, how many were present overall
+     * (present and partial) and absent: as local_zoomattendance shows it, with a bar split into
+     * the three colours.
      *
      * @param array $last With cmid, occurrenceid, time, name and counts.
      * @return string
      */
     protected function last_class(array $last): string {
         $counts = $last['counts'];
-        $a = (object) [
-            'expected' => $counts['expected'],
-            'present' => $counts['present'],
-            'partial' => $counts['partial'],
-            'absent' => $counts['absent'],
-        ];
+        $a = \local_zoomattendance\local\headcount::string_data($counts);
         $segments = '';
         foreach (['present' => 'success', 'partial' => 'warning', 'absent' => 'danger'] as $state => $variant) {
             if ($counts[$state]) {
