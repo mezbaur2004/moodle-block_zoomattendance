@@ -122,6 +122,10 @@ final class content_test extends \advanced_testcase {
         $dg->create_group_member(['groupid' => $group->id, 'userid' => $this->users['teacher']->id]);
         $dg->create_group_member(['groupid' => $group->id, 'userid' => $this->users['low']->id]);
         rebuild_course_cache($this->course->id, true);
+        // Past classes count the groups users were in then: freeze them again with these groups.
+        $DB->delete_records('local_zoomattendance_roster');
+        $DB->set_field('local_zoomattendance_occ', 'rosterfrozen', 0);
+        sync::sync_all();
 
         $this->setUser($this->users['teacher']);
         $data = content::build();
