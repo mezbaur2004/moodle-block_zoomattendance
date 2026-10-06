@@ -25,7 +25,7 @@ local_zoomattendance, so the block always agrees with its reports.
 | My attendance | Students | Course overall % per course, coloured by threshold, linked to their attendance page |
 | My students | Teachers, Coordinators | Per course: how many students are low (below the Partial threshold), linked to the course report, and out of the expected students how many were present overall (present + partial) and absent at the latest class ("17 of 18 present"), linked to that class. In separate-groups courses, a user without *Access all groups* counts only their own groups |
 | My teaching | Teachers, Coordinators | Their own teaching attendance per course (teacher tracking on) |
-| Teacher attendance | Managers, Coordinators | The five non-editing teachers with the lowest attendance (Coordinators are left out), and a link to the all-courses report. Managers see every course; Coordinators the non-editing teachers of their own courses (teacher tracking on) |
+| Teacher attendance | Managers, Coordinators | The five non-editing teachers with the lowest attendance (Coordinators are left out), and a link to the overview of every teacher, Coordinators included. Managers see every course; Coordinators the non-editing teachers of their own courses (teacher tracking on) |
 
 Each percentage has a thin bar coloured as Zoom attendance colours it: green from the Present
 threshold, orange from the Partial threshold and red below, with a line at the Present threshold.
@@ -34,6 +34,11 @@ site defaults of local_zoomattendance (75 % / 50 % by default); teacher figures 
 thresholds (90 % / 10 % by default). Students below the Partial threshold are counted as low.
 Teacher rows also show *When joined*: attendance over only the classes the teacher joined, as in
 local_zoomattendance. Users with nothing to see do not see the block.
+
+Roles are called by the site's names for them (*Site administration > Users > Define roles*, or a
+language customisation). A site that renames *Non-editing teacher* to *Teacher* and *Teacher* to
+*Coordinator* sees "Role: Teacher." over the list and "Every Teacher and Coordinator ›" on the
+link. Course-level role renaming is not used, as the block spans courses.
 
 ## Settings
 

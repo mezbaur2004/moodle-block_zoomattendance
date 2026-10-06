@@ -175,13 +175,14 @@ final class content_test extends \advanced_testcase {
         // The line marks the student Present threshold (75 %) and the teacher one (90 %).
         $this->assertStringContainsString('left: 75%;', $html);
         $this->assertStringContainsString('Teacher attendance', $html);
-        $hint = 'Non-editing teachers, last 30 days, lowest first. Green from 90%, orange from 10%, red below.';
+        $hint = 'Role: Non-editing teacher. Last 30 days, lowest first. Green from 90%, orange from 10%, red below.';
         $this->assertStringContainsString($hint, $html);
         $this->assertStringContainsString('left: 90%;', $html);
         // The coordinator's own teaching at 100 % is green, and they joined their one class.
         $this->assertStringContainsString('bg-success" style="width: 100%;"', $html);
         $this->assertStringContainsString('When joined: 100.0%', $html);
-        $this->assertStringContainsString('All non-editing teachers (1)', $html);
+        // The overview lists coordinators too, and the link says so.
+        $this->assertStringContainsString('Every Non-editing teacher and Teacher ›', $html);
         $this->assertStringNotContainsString('mine=1', $html);
         // The latest class: present of expected, with a bar split by status.
         $this->assertStringContainsString('Last class: ', $html);
@@ -191,6 +192,40 @@ final class content_test extends \advanced_testcase {
         $this->assertStringContainsString('/local/zoomattendance/report.php?id=', $html);
         $this->assertStringContainsString('/local/zoomattendance/teachersoverview.php', $html);
         $this->assertStringContainsString('Updated', $PAGE->get_renderer('block_zoomattendance')->updated($data['built']));
+    }
+
+    public function test_uses_the_site_role_names(): void {
+        global $DB, $PAGE;
+        // The site renames its roles: non-editing teachers are Teachers, teachers Coordinators.
+        $DB->set_field('role', 'name', 'Teacher', ['shortname' => 'teacher']);
+        $DB->set_field('role', 'name', 'Coordinator', ['shortname' => 'editingteacher']);
+        $this->assertSame(['Teacher'], content::teacher_roles(false));
+        $this->assertSame(['Coordinator'], content::teacher_roles(true));
+        $this->assertSame(['Teacher', 'Coordinator'], content::teacher_roles());
+
+        $this->setUser($this->users['manager']);
+        $html = $PAGE->get_renderer('block_zoomattendance')->overview(content::build());
+        $this->assertStringContainsString('Role: Teacher. Last 30 days, lowest first.', $html);
+        $this->assertStringContainsString('Every Teacher and Coordinator ›', $html);
+        $this->assertStringNotContainsString('editing', $html);
+
+        // A coordinator's link opens their own view: their teaching and their courses' teachers.
+        $this->setUser($this->users['coordinator']);
+        $html = $PAGE->get_renderer('block_zoomattendance')->overview(content::build());
+        $this->assertStringContainsString('My teaching and every Teacher ›', $html);
+        $this->assertStringContainsString('mine=1', $html);
+
+        // A second non-editing role, named with an ampersand, is listed in the site's role order
+        // and escaped once.
+        $tutor = create_role('Tutor & Mentor', 'tutor', '', 'teacher');
+        assign_capability('local/zoomattendance:betrackedteacher', CAP_ALLOW, $tutor, \context_system::instance());
+        $this->assertSame(['Teacher', 'Tutor & Mentor'], content::teacher_roles(false));
+        $this->setUser($this->users['manager']);
+        $html = $PAGE->get_renderer('block_zoomattendance')->overview(content::build());
+        $this->assertStringContainsString('Roles: Teacher and Tutor &amp; Mentor. Last 30 days', $html);
+        $this->assertStringContainsString('Every Teacher, Tutor &amp; Mentor and Coordinator ›', $html);
+        $hint = \block_zoomattendance\output\mobile::sections(content::build())[0]['hint'];
+        $this->assertStringStartsWith('Roles: Teacher and Tutor & Mentor. Last 30 days', $hint);
     }
 
     public function test_nothing_to_show_and_cache(): void {

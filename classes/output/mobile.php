@@ -121,8 +121,7 @@ class mobile {
                 $course = self::course_name($row['courseid'], $row['course']);
                 $rows[] = self::row($row['name'], $course, $row['percentage'], $teachers);
             }
-            $a = (object) (['days' => $data['days']] + (array) $bands($teachers));
-            $hint = get_string('teachershelp', 'block_zoomattendance', $a);
+            $hint = content::teachers_hint($data['days'], (array) $bands($teachers));
             $sections[] = self::section('teachersheading', $hint, $rows);
         }
         return $sections;
