@@ -136,6 +136,85 @@ class content {
     }
 
     /**
+     * Names of the roles that make someone a tracked teacher, as the site names them (Define roles
+     * or a language customisation), so the block speaks the site's language. Course role renaming
+     * is not used: the block spans courses. Plain text.
+     *
+     * @param bool|null $editing true for the roles that can edit courses (Zoom attendance's rule for
+     *     coordinators), false for the others (the teachers the block lists), null for both: the
+     *     others first, each in the site's role order.
+     * @return string[]
+     */
+    public static function teacher_roles(?bool $editing = null): array {
+        if ($editing === null) {
+            return array_values(array_unique(array_merge(self::teacher_roles(false), self::teacher_roles(true))));
+        }
+        $context = \context_system::instance();
+        $editors = get_roles_with_capability(teacher_access::EDITING_CAPABILITY, CAP_ALLOW, $context);
+        $roles = array_filter(
+            get_roles_with_capability('local/zoomattendance:betrackedteacher', CAP_ALLOW, $context),
+            function ($role) use ($editors, $editing) {
+                return isset($editors[$role->id]) === $editing;
+            }
+        );
+        uasort($roles, function ($a, $b) {
+            return $a->sortorder <=> $b->sortorder;
+        });
+        $names = [];
+        foreach ($roles as $role) {
+            // Plain text: callers escape it.
+            $names[] = html_entity_decode(role_get_name($role, $context), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        if (!$names) {
+            // No role has the capability site-wide: Moodle's names for its standard roles.
+            $names[] = get_string($editing ? 'defaultcourseteacher' : 'noneditingteacher');
+        }
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * Role names as a list in a sentence: "Teacher", "Teacher and Coordinator".
+     *
+     * @param string[] $names
+     * @return string
+     */
+    public static function role_list(array $names): string {
+        $last = (string) array_pop($names);
+        if (!$names) {
+            return $last;
+        }
+        return get_string('listand', 'block_zoomattendance', (object) ['list' => implode(', ', $names), 'last' => $last]);
+    }
+
+    /**
+     * Hint of the Teacher attendance section: whom it lists, by role name, the period and the
+     * colours.
+     *
+     * @param int $days
+     * @param string[] $bands Thresholds as text, with present and partial.
+     * @return string Plain text.
+     */
+    public static function teachers_hint(int $days, array $bands): string {
+        $roles = self::teacher_roles(false);
+        return get_string(count($roles) > 1 ? 'teachersroles' : 'teachersrole', 'block_zoomattendance', self::role_list($roles))
+            . ' ' . get_string('teachershelp', 'block_zoomattendance', (object) (['days' => $days] + $bands));
+    }
+
+    /**
+     * Label of the link to Zoom attendance's teacher overview. That page lists coordinators too:
+     * every tracked teacher of every course for managers; for a coordinator, their own teaching
+     * and the teachers of their courses.
+     *
+     * @param bool $mine Whether it is a coordinator's own view.
+     * @return string Plain text.
+     */
+    public static function overview_label(bool $mine): string {
+        return $mine
+            ? get_string('myteachingandteachers', 'block_zoomattendance', self::role_list(self::teacher_roles(false)))
+            : get_string('everyteacher', 'block_zoomattendance', self::role_list(self::teacher_roles()));
+    }
+
+    /**
      * Teacher thresholds of local_zoomattendance.
      *
      * @return float[] With present and partial.

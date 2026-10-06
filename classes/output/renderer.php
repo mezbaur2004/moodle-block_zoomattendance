@@ -24,6 +24,7 @@
 
 namespace block_zoomattendance\output;
 
+use block_zoomattendance\local\content;
 use html_writer;
 use moodle_url;
 
@@ -112,17 +113,18 @@ class renderer extends \plugin_renderer_base {
                     $teachers
                 );
             }
-            // Coordinators see the list of their own courses.
-            $mine = empty($data['teachers']['mine']) ? [] : ['mine' => 1];
+            // Coordinators see the list of their own courses. The list has coordinators too, so
+            // the link names every role it covers.
+            $mine = !empty($data['teachers']['mine']);
             $all = html_writer::link(
-                new moodle_url('/local/zoomattendance/teachersoverview.php', $range + $mine),
-                get_string('allteachers', 'block_zoomattendance', $data['teachers']['total']),
+                new moodle_url('/local/zoomattendance/teachersoverview.php', $range + ($mine ? ['mine' => 1] : [])),
+                s(content::overview_label($mine)),
                 ['class' => 'btn btn-sm btn-outline-secondary mt-2']
             );
             $out .= $this->section(
                 'i/report',
                 get_string('teachersheading', 'block_zoomattendance'),
-                get_string('teachershelp', 'block_zoomattendance', (object) (['days' => $data['days']] + self::bands($teachers))),
+                content::teachers_hint($data['days'], self::bands($teachers)),
                 $items,
                 $all
             );
