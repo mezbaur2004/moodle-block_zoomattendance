@@ -82,6 +82,7 @@ final class content_test extends \advanced_testcase {
         $this->assertSame('Spoken English', $data['mine'][0]['name']);
         $this->assertEqualsWithDelta(100.0, $data['mine'][0]['percentage'], 0.01);
         $this->assertSame([], $data['students']);
+        $this->assertSame([], $data['recent']);
         $this->assertSame([], $data['teaching']);
         $this->assertNull($data['teachers']);
 
@@ -93,12 +94,16 @@ final class content_test extends \advanced_testcase {
         $this->setUser($this->users['coordinator']);
         $data = content::build();
         $this->assertSame([], $data['mine']);
-        $row = $data['students'][0];
         $expected = ['courseid' => (int) $this->course->id, 'name' => 'Spoken English', 'low' => 1, 'total' => 2];
-        $this->assertSame($expected, array_diff_key($row, ['last' => 1]));
-        // The latest class: out of 2 expected students, Full was present and Low absent.
-        $this->assertSame(['expected' => 2, 'overall' => 1, 'present' => 1, 'partial' => 0, 'absent' => 1], $row['last']['counts']);
-        $this->assertSame('Zoom', substr($row['last']['name'], 0, 4));
+        $this->assertSame($expected, $data['students'][0]);
+        // The class: out of 2 expected students, Full was present and Low absent.
+        $this->assertCount(1, $data['recent']);
+        $class = $data['recent'][0];
+        $this->assertSame(['expected' => 2, 'overall' => 1, 'present' => 1, 'partial' => 0, 'absent' => 1], $class['counts']);
+        $this->assertEqualsWithDelta(50.0, $class['percentage'], 0.01);
+        $this->assertSame('Zoom', substr($class['name'], 0, 4));
+        $this->assertSame('Spoken English', $class['course']);
+        $this->assertSame((int) $this->course->id, $class['courseid']);
         $this->assertCount(1, $data['teaching']);
         $this->assertEqualsWithDelta(100.0, $data['teaching'][0]['percentage'], 0.01);
         $this->assertSame(1, $data['teaching'][0]['classes']);
@@ -112,6 +117,51 @@ final class content_test extends \advanced_testcase {
         // Low means below the Partial threshold of Zoom attendance (50 % by default; Low has 25 %).
         set_config('latepct', 20, 'local_zoomattendance');
         $this->assertSame(0, content::build()['students'][0]['low']);
+    }
+
+    public function test_recent_classes_newest_first_across_courses(): void {
+        $dg = $this->getDataGenerator();
+        $generator = $dg->get_plugin_generator('local_zoomattendance');
+        $history = $dg->create_course(['fullname' => 'History']);
+        $maths = $dg->create_course(['fullname' => 'Maths']);
+        $historian = $dg->create_and_enrol($history, 'editingteacher');
+        $students = [
+            $history->id => $dg->create_and_enrol($history, 'student'),
+            $maths->id => $dg->create_and_enrol($maths, 'student'),
+        ];
+        // Name => course, hours ago, whether the student stays throughout (else 5 minutes).
+        $classes = [
+            'H3' => [$history, 3, true],
+            'M4' => [$maths, 4, false],
+            'H5' => [$history, 5, false],
+            'M6' => [$maths, 6, true],
+            'H30' => [$history, 30, true],
+            // Before the 30-day period.
+            'M960' => [$maths, 960, true],
+        ];
+        foreach ($classes as $name => [$course, $hours, $stays]) {
+            $start = time() - $hours * HOURSECS;
+            $record = ['course' => $course->id, 'name' => $name, 'start_time' => $start, 'duration' => HOURSECS];
+            $cm = $generator->create_zoom($record);
+            $session = $generator->create_session($cm, $start, $start + HOURSECS);
+            $leave = $start + ($stays ? HOURSECS : 5 * MINSECS);
+            $generator->create_participant($session, $start, $leave, ['userid' => $students[$course->id]->id]);
+        }
+        sync::sync_all();
+
+        // Managers: the five latest classes of every course, Spoken English's from yesterday included.
+        $this->setUser($this->users['manager']);
+        $recent = content::build()['recent'];
+        $this->assertSame(['H3', 'M4', 'H5', 'M6'], array_slice(array_column($recent, 'name'), 0, 4));
+        $this->assertSame('Spoken English', $recent[4]['course']);
+        $this->assertSame([100.0, 0.0, 0.0, 100.0], array_slice(array_column($recent, 'percentage'), 0, 4));
+        $this->assertSame(['History', 'Maths'], array_slice(array_column($recent, 'course'), 0, 2));
+
+        // Teachers: only the classes of their own courses, older ones too while in the period.
+        $this->setUser($historian);
+        $this->assertSame(['H3', 'H5', 'H30'], array_column(content::build()['recent'], 'name'));
+        $this->setUser($this->users['coordinator']);
+        $this->assertSame(['Spoken English'], array_column(content::build()['recent'], 'course'));
     }
 
     public function test_teacher_in_separate_groups_counts_own_groups_only(): void {
@@ -132,7 +182,8 @@ final class content_test extends \advanced_testcase {
         $this->assertSame(1, $data['students'][0]['total']);
         $this->assertSame(1, $data['students'][0]['low']);
         $counts = ['expected' => 1, 'overall' => 0, 'present' => 0, 'partial' => 0, 'absent' => 1];
-        $this->assertSame($counts, $data['students'][0]['last']['counts']);
+        $this->assertSame($counts, $data['recent'][0]['counts']);
+        $this->assertEqualsWithDelta(0.0, $data['recent'][0]['percentage'], 0.01);
         // Absent from the only class, so nothing for "When joined".
         $this->assertEqualsWithDelta(0.0, $data['teaching'][0]['percentage'], 0.01);
         $this->assertNull($data['teaching'][0]['joined']);
@@ -148,6 +199,9 @@ final class content_test extends \advanced_testcase {
         $this->assertEqualsWithDelta(0.0, $data['teachers']['rows'][0]['percentage'], 0.01);
         $this->assertFalse($data['teachers']['mine']);
         $this->assertFalse(content::is_empty($data));
+        // Managers see the classes of every course, though not enrolled.
+        $this->assertCount(1, $data['recent']);
+        $this->assertSame(2, $data['recent'][0]['counts']['expected']);
 
         // Without teacher tracking there are no teacher sections.
         set_config('teachertracking', 0, 'local_zoomattendance');
@@ -184,12 +238,21 @@ final class content_test extends \advanced_testcase {
         // The overview lists coordinators too, and the link says so.
         $this->assertStringContainsString('Every Non-editing teacher and Teacher ›', $html);
         $this->assertStringNotContainsString('mine=1', $html);
-        // The latest class: present of expected, with a bar split by status.
-        $this->assertStringContainsString('Last class: ', $html);
-        $this->assertStringContainsString('1 of 2 present', $html);
-        $this->assertStringContainsString('1 present + 0 partial · 1 absent', $html);
-        $this->assertStringContainsString('block_zoomattendance-split', $html);
-        $this->assertStringContainsString('/local/zoomattendance/report.php?id=', $html);
+        // My students has only the count of low students.
+        $this->assertStringContainsString('Students under 50% course overall.', $html);
+        $this->assertStringContainsString('1 of 2 low', $html);
+        // Recent classes: present of expected, coloured by the student thresholds, linked to the class.
+        $this->assertStringContainsString('Recent classes', $html);
+        $hint = 'Last 30 days, newest first. Students present (present + partial) out of those expected. Green from 75%, '
+            . 'orange from 50%, red below.';
+        $this->assertStringContainsString($hint, $html);
+        $this->assertStringContainsString('Spoken English · ', $html);
+        $full = 'Out of 2 expected students: 1 present (1 present + 0 partial), 1 absent.';
+        $this->assertStringContainsString('<div title="' . $full . '"><strong>1 of 2 present</strong></div>', $html);
+        $this->assertStringContainsString('block_zoomattendance-fill bg-warning" style="width: 50%;"', $html);
+        $class = $data['recent'][0];
+        $url = '/local/zoomattendance/report.php?id=' . $class['cmid'] . '&amp;occurrence=' . $class['occurrenceid'];
+        $this->assertStringContainsString($url, $html);
         $this->assertStringContainsString('/local/zoomattendance/teachersoverview.php', $html);
         $this->assertStringContainsString('Updated', $PAGE->get_renderer('block_zoomattendance')->updated($data['built']));
     }
@@ -224,7 +287,8 @@ final class content_test extends \advanced_testcase {
         $html = $PAGE->get_renderer('block_zoomattendance')->overview(content::build());
         $this->assertStringContainsString('Roles: Teacher and Tutor &amp; Mentor. Last 30 days', $html);
         $this->assertStringContainsString('Every Teacher, Tutor &amp; Mentor and Coordinator ›', $html);
-        $hint = \block_zoomattendance\output\mobile::sections(content::build())[0]['hint'];
+        $sections = \block_zoomattendance\output\mobile::sections(content::build());
+        $hint = array_column($sections, 'hint', 'title')['Teacher attendance'];
         $this->assertStringStartsWith('Roles: Teacher and Tutor & Mentor. Last 30 days', $hint);
     }
 
@@ -267,11 +331,15 @@ final class content_test extends \advanced_testcase {
         $this->assertSame('main', $view['templates'][0]['id']);
         $sections = json_decode($view['otherdata']['sections']);
         $titles = array_column($sections, 'title');
-        $this->assertSame(['My students', 'My teaching', 'Teacher attendance'], $titles);
-        // The latest class of the course, with its headcount.
-        $this->assertStringContainsString('1 of 2 present', $sections[0]->rows[0]->sub);
-        $this->assertSame('100.0%', $sections[1]->rows[0]->value);
-        $this->assertSame('success', $sections[1]->rows[0]->color);
+        $this->assertSame(['My students', 'Recent classes', 'My teaching', 'Teacher attendance'], $titles);
+        $this->assertSame('1 of 2 low', $sections[0]->rows[0]->value);
+        // The class, with its course and headcount, coloured by the student thresholds.
+        $this->assertStringStartsWith('Spoken English · ', $sections[1]->rows[0]->sub);
+        $this->assertStringEndsWith(' · 1 of 2 present', $sections[1]->rows[0]->sub);
+        $this->assertSame('50.0%', $sections[1]->rows[0]->value);
+        $this->assertSame('warning', $sections[1]->rows[0]->color);
+        $this->assertSame('100.0%', $sections[2]->rows[0]->value);
+        $this->assertSame('success', $sections[2]->rows[0]->color);
         // Text reaches the app as data, never inside the template.
         $this->assertStringNotContainsString('Spoken English', $view['templates'][0]['html']);
 

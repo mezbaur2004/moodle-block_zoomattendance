@@ -82,6 +82,19 @@ class renderer extends \plugin_renderer_base {
             );
         }
 
+        if (!empty($data['recent'])) {
+            $items = [];
+            foreach ($data['recent'] as $row) {
+                $items[] = $this->class_row($row, $students);
+            }
+            $out .= $this->section(
+                'i/calendareventtime',
+                get_string('recentheading', 'block_zoomattendance'),
+                get_string('recenthelp', 'block_zoomattendance', (object) (['days' => $data['days']] + self::bands($students))),
+                $items
+            );
+        }
+
         if ($data['teaching']) {
             $items = [];
             foreach ($data['teaching'] as $row) {
@@ -282,45 +295,36 @@ class renderer extends \plugin_renderer_base {
             . html_writer::div($status, 'block_zoomattendance-value text-nowrap'),
             'd-flex justify-content-between align-items-center'
         );
-        $last = empty($row['last']) ? '' : $this->last_class($row['last']);
-        return html_writer::tag('li', $top . $last, ['class' => 'block_zoomattendance-row']);
+        return html_writer::tag('li', $top, ['class' => 'block_zoomattendance-row']);
     }
 
     /**
-     * Out of the students expected at a course's latest class, how many were present overall
-     * (present and partial) and absent: as local_zoomattendance shows it, with a bar split into
-     * the three colours.
+     * A recent class: its activity and course, when it started, and out of the expected students
+     * how many were present overall (present and partial), as a percentage coloured by the
+     * student thresholds and as counts, as local_zoomattendance shows them.
      *
-     * @param array $last With cmid, occurrenceid, time, name and counts.
+     * @param array $row From content::recent().
+     * @param float[] $thresholds Student thresholds.
      * @return string
      */
-    protected function last_class(array $last): string {
-        $counts = $last['counts'];
-        $a = \local_zoomattendance\local\headcount::string_data($counts);
-        $segments = '';
-        foreach (['present' => 'success', 'partial' => 'warning', 'absent' => 'danger'] as $state => $variant) {
-            if ($counts[$state]) {
-                $segments .= html_writer::div('', 'bg-' . $variant, [
-                    'style' => 'width: ' . round(100 * $counts[$state] / $counts['expected'], 1) . '%;',
-                ]);
-            }
-        }
-        $when = html_writer::link(
-            new moodle_url('/local/zoomattendance/report.php', ['id' => $last['cmid'], 'occurrence' => $last['occurrenceid']]),
-            get_string('lastclass', 'block_zoomattendance', (object) [
-                'name' => format_string($last['name']),
-                'date' => userdate($last['time'], get_string('strftimedatetimeshort', 'langconfig')),
-            ]),
-            ['class' => 'text-muted']
-        );
-        $present = html_writer::tag('strong', s(get_string('headcount_present', 'local_zoomattendance', $a)));
-        $rest = html_writer::span(s(get_string('headcount_rest', 'local_zoomattendance', $a)), 'text-muted');
-        return html_writer::div(
-            html_writer::div($when)
-                . html_writer::div($present . ' · ' . $rest)
-                . html_writer::div($segments, 'block_zoomattendance-split', ['aria-hidden' => 'true']),
-            'block_zoomattendance-lastclass small',
+    protected function class_row(array $row, array $thresholds): string {
+        $a = \local_zoomattendance\local\headcount::string_data($row['counts']);
+        $when = get_string('classwhen', 'block_zoomattendance', (object) [
+            'course' => $this->course_name($row['courseid'], $row['course']),
+            'date' => userdate($row['time'], get_string('strftimedatetimeshort', 'langconfig')),
+        ]);
+        // The split into present, partial and absent is in the tooltip, to keep the row short.
+        $count = html_writer::div(
+            html_writer::tag('strong', s(get_string('headcount_present', 'local_zoomattendance', $a))),
+            '',
             ['title' => get_string('headcount_full', 'local_zoomattendance', $a)]
+        );
+        return $this->meter_row(
+            new moodle_url('/local/zoomattendance/report.php', ['id' => $row['cmid'], 'occurrence' => $row['occurrenceid']]),
+            format_string($row['name'], true, ['context' => \context_module::instance($row['cmid'])]),
+            html_writer::div($when) . $count,
+            $row['percentage'],
+            $thresholds
         );
     }
 

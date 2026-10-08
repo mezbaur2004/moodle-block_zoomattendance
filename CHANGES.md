@@ -1,5 +1,16 @@
 # Changes
 
+## 0.6.0 (2026100800)
+
+- **Recent classes**: a new section with the five latest classes, newest first. Each row shows
+  the class (linked to its report), its course and start time, and how many of the expected
+  students were present overall ("17 of 18 present"). The percentage is coloured by the Present
+  and Partial thresholds. Managers see every course's classes, teachers and coordinators their
+  own courses' (only their groups in separate-groups courses).
+- *My students* now shows only the low-student count per course: the latest class's headcount
+  moved to *Recent classes*.
+- The period setting is now *Period (days)*, as it also sets how far back *Recent classes* goes.
+
 ## 0.5.1 (2026100604)
 
 - *Teacher attendance* uses the site's role names, as set under *Define roles* (or in a language
