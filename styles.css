@@ -61,21 +61,3 @@
     font-size: 80%;
     color: #6a737b;
 }
-
-/* A course's latest class: present of expected, then a bar split green / orange / red. */
-.block_zoomattendance .block_zoomattendance-lastclass {
-    margin-top: .25rem;
-}
-
-.block_zoomattendance .block_zoomattendance-split {
-    display: flex;
-    height: 6px;
-    margin-top: .25rem;
-    overflow: hidden;
-    border-radius: 3px;
-    background-color: rgba(0, 0, 0, .08);
-}
-
-.block_zoomattendance .block_zoomattendance-split > div {
-    height: 100%;
-}

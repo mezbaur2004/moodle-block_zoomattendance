@@ -76,18 +76,9 @@ class mobile {
         if ($data['students']) {
             $rows = [];
             foreach ($data['students'] as $row) {
-                $sub = '';
-                if (!empty($row['last'])) {
-                    $a = headcount::string_data($row['last']['counts']);
-                    $sub = get_string('lastclass', 'block_zoomattendance', (object) [
-                        'name' => format_string($row['last']['name']),
-                        'date' => userdate($row['last']['time'], get_string('strftimedatetimeshort', 'langconfig')),
-                    ]) . ': ' . get_string('headcount_present', 'local_zoomattendance', $a)
-                        . ' · ' . get_string('headcount_rest', 'local_zoomattendance', $a);
-                }
                 $rows[] = [
                     'name' => self::course_name($row['courseid'], $row['name']),
-                    'sub' => $sub,
+                    'sub' => '',
                     'value' => $row['low'] ? get_string('lowcount', 'block_zoomattendance', (object) $row)
                         : get_string('allabove', 'block_zoomattendance', $row['total']),
                     'color' => $row['low'] ? 'warning' : 'medium',
@@ -98,6 +89,22 @@ class mobile {
                 get_string('studentshelp', 'block_zoomattendance', format_float($students['partial'], 0)),
                 $rows
             );
+        }
+
+        if (!empty($data['recent'])) {
+            $rows = [];
+            foreach ($data['recent'] as $row) {
+                $a = headcount::string_data($row['counts']);
+                $sub = get_string('classwhen', 'block_zoomattendance', (object) [
+                    'course' => self::course_name($row['courseid'], $row['course']),
+                    'date' => userdate($row['time'], get_string('strftimedatetimeshort', 'langconfig')),
+                ]) . ' · ' . get_string('headcount_present', 'local_zoomattendance', $a);
+                $context = \context_module::instance($row['cmid']);
+                $name = format_string($row['name'], true, ['context' => $context, 'escape' => false]);
+                $rows[] = self::row($name, $sub, $row['percentage'], $students);
+            }
+            $a = (object) (['days' => $data['days']] + (array) $bands($students));
+            $sections[] = self::section('recentheading', get_string('recenthelp', 'block_zoomattendance', $a), $rows);
         }
 
         if ($data['teaching']) {

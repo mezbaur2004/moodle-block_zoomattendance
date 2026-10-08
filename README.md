@@ -23,14 +23,15 @@ local_zoomattendance, so the block always agrees with its reports.
 | Section | Shown to | Content |
 |---|---|---|
 | My attendance | Students | Course overall % per course, coloured by threshold, linked to their attendance page |
-| My students | Teachers, Coordinators | Per course: how many students are low (below the Partial threshold), linked to the course report, and out of the expected students how many were present overall (present + partial) and absent at the latest class ("17 of 18 present"), linked to that class. In separate-groups courses, a user without *Access all groups* counts only their own groups |
+| My students | Teachers, Coordinators | Per course: how many students are low (below the Partial threshold), linked to the course report. In separate-groups courses, a user without *Access all groups* counts only their own groups |
+| Recent classes | Managers, Teachers, Coordinators | The five latest classes of the period, newest first: the class (linked to its report), its course and start time, and out of the expected students how many were present overall (present + partial), as a percentage coloured by the student thresholds and as counts ("17 of 18 present"). Managers see every course; Teachers and Coordinators their own courses, and in separate-groups courses without *Access all groups* only their own groups |
 | My teaching | Teachers, Coordinators | Their own teaching attendance per course (teacher tracking on) |
 | Teacher attendance | Managers, Coordinators | The five non-editing teachers with the lowest attendance (Coordinators are left out), and a link to the overview of every teacher, Coordinators included. Managers see every course; Coordinators the non-editing teachers of their own courses (teacher tracking on) |
 
 Each percentage has a thin bar coloured as Zoom attendance colours it: green from the Present
 threshold, orange from the Partial threshold and red below, with a line at the Present threshold.
 A red value is also labelled *Low*, so it never relies on colour alone. Student figures use the
-site defaults of local_zoomattendance (75 % / 50 % by default); teacher figures use its teacher
+site defaults of local_zoomattendance (75 % / 50 % by default), and so do class figures; teacher figures use its teacher
 thresholds (90 % / 10 % by default). Students below the Partial threshold are counted as low.
 Teacher rows also show *When joined*: attendance over only the classes the teacher joined, as in
 local_zoomattendance. Users with nothing to see do not see the block.
@@ -46,7 +47,7 @@ link. Course-level role renaming is not used, as the block spans courses.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| Teacher period | 30 days | Period the teacher sections cover |
+| Period | 30 days | Period *Recent classes* and the teacher sections cover |
 
 The colours and the low threshold come from local_zoomattendance's own thresholds, so the block
 and the reports always agree.
