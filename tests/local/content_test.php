@@ -54,7 +54,7 @@ final class content_test extends \advanced_testcase {
             'full' => $dg->create_and_enrol($this->course, 'student', ['firstname' => 'Full']),
             'low' => $dg->create_and_enrol($this->course, 'student', ['firstname' => 'Low']),
             'coordinator' => $dg->create_and_enrol($this->course, 'editingteacher', ['firstname' => 'Coordinator']),
-            'teacher' => $dg->create_and_enrol($this->course, 'teacher', ['firstname' => 'Teacher']),
+            'teacher' => $dg->create_and_enrol($this->course, 'teacher', ['firstname' => 'Teacher', 'phone2' => '01812-345678']),
             'manager' => $dg->create_user(['firstname' => 'Manager']),
             'outsider' => $dg->create_user(),
         ];
@@ -206,6 +206,36 @@ final class content_test extends \advanced_testcase {
         // Without teacher tracking there are no teacher sections.
         set_config('teachertracking', 0, 'local_zoomattendance');
         $this->assertNull(content::build()['teachers']);
+    }
+
+    public function test_teacher_rows_have_contact_numbers(): void {
+        global $DB, $PAGE;
+        $this->setUser($this->users['manager']);
+        $row = content::build()['teachers']['rows'][0];
+        $this->assertSame([['text' => '+8801812345678', 'digits' => '8801812345678']], $row['phones']);
+        $html = $PAGE->get_renderer('block_zoomattendance')->overview(content::build());
+        $this->assertStringContainsString('>+8801812345678<', $html);
+        $this->assertStringContainsString('href="tel:+8801812345678"', $html);
+        $this->assertStringContainsString('href="https://wa.me/8801812345678"', $html);
+
+        // The app gets the same links, and the button labels.
+        $view = \block_zoomattendance\output\mobile::mobile_block_view([]);
+        $sections = json_decode($view['otherdata']['sections']);
+        $teachers = array_column($sections, null, 'title')['Teacher attendance'];
+        $phone = $teachers->rows[0]->phones[0];
+        $this->assertSame(['+8801812345678', 'tel:+8801812345678', 'https://wa.me/8801812345678'], [
+            $phone->text,
+            $phone->call,
+            $phone->whatsapp,
+        ]);
+        $this->assertSame('WhatsApp', json_decode($view['otherdata']['strings'])->whatsapp);
+        $this->assertStringContainsString('core-link [href]="phone.call"', $view['templates'][0]['html']);
+
+        // Without Zoom attendance's viewphone, no numbers.
+        $managerrole = $DB->get_field('role', 'id', ['shortname' => 'manager']);
+        assign_capability('local/zoomattendance:viewphone', CAP_PROHIBIT, $managerrole, \context_system::instance()->id, true);
+        $this->assertSame([], content::build()['teachers']['rows'][0]['phones']);
+        $this->assertStringNotContainsString('tel:', $PAGE->get_renderer('block_zoomattendance')->overview(content::build()));
     }
 
     public function test_renders_every_section(): void {

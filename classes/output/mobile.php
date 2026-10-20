@@ -26,6 +26,7 @@ namespace block_zoomattendance\output;
 
 use block_zoomattendance\local\content;
 use local_zoomattendance\local\headcount;
+use local_zoomattendance\local\phone;
 
 /**
  * The block for the Moodle app (see db/mobile.php): the web block's sections as plain rows.
@@ -44,7 +45,13 @@ class mobile {
         return [
             'templates' => [['id' => 'main', 'html' => self::template()]],
             'javascript' => '',
-            'otherdata' => ['sections' => json_encode($sections)],
+            'otherdata' => [
+                'sections' => json_encode($sections),
+                'strings' => json_encode([
+                    'call' => get_string('phonecall', 'local_zoomattendance'),
+                    'whatsapp' => get_string('phonewhatsapp', 'local_zoomattendance'),
+                ]),
+            ],
         ];
     }
 
@@ -126,7 +133,9 @@ class mobile {
             $rows = [];
             foreach ($data['teachers']['rows'] as $row) {
                 $course = self::course_name($row['courseid'], $row['course']);
-                $rows[] = self::row($row['name'], $course, $row['percentage'], $teachers);
+                $rows[] = self::row($row['name'], $course, $row['percentage'], $teachers) + [
+                    'phones' => self::phones($row['phones'] ?? []),
+                ];
             }
             $hint = content::teachers_hint($data['days'], (array) $bands($teachers));
             $sections[] = self::section('teachersheading', $hint, $rows);
@@ -166,6 +175,26 @@ class mobile {
     }
 
     /**
+     * Contact numbers as links for the app.
+     *
+     * @param array[] $numbers Each with text and digits.
+     * @return array[] Each with text, and call and whatsapp (links, or '' when the value is not a
+     *     phone number).
+     */
+    protected static function phones(array $numbers): array {
+        $links = [];
+        foreach ($numbers as $number) {
+            $number = (object) $number;
+            $links[] = [
+                'text' => $number->text,
+                'call' => $number->digits === null ? '' : phone::call_url($number),
+                'whatsapp' => $number->digits === null ? '' : phone::whatsapp_url($number),
+            ];
+        }
+        return $links;
+    }
+
+    /**
      * A course name as plain text.
      *
      * @param int $courseid
@@ -189,7 +218,14 @@ class mobile {
             <ion-label><h2>{{ section.title }}</h2><p>{{ section.hint }}</p></ion-label>
         </ion-item-divider>
         <ion-item *ngFor="let row of section.rows">
-            <ion-label><h3>{{ row.name }}</h3><p *ngIf="row.sub">{{ row.sub }}</p></ion-label>
+            <ion-label>
+                <h3>{{ row.name }}</h3><p *ngIf="row.sub">{{ row.sub }}</p>
+                <p *ngFor="let phone of row.phones">
+                    {{ phone.text }}
+                    <a *ngIf="phone.call" core-link [href]="phone.call">{{ CONTENT_OTHERDATA.strings.call }}</a>
+                    <a *ngIf="phone.whatsapp" core-link [href]="phone.whatsapp">{{ CONTENT_OTHERDATA.strings.whatsapp }}</a>
+                </p>
+            </ion-label>
             <ion-badge slot="end" [color]="row.color">{{ row.value }}</ion-badge>
         </ion-item>
     </ng-container>

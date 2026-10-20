@@ -6,7 +6,7 @@ It shows each user their Zoom attendance at a glance, as far as their role allow
 ## Requirements
 
 - Moodle 4.1 or later
-- local_zoomattendance 0.4.0 (`2026100602`) or later
+- local_zoomattendance 0.6.0 (`2026102000`) or later
 
 ## Installation
 
@@ -26,7 +26,7 @@ local_zoomattendance, so the block always agrees with its reports.
 | My students | Teachers, Coordinators | Per course: how many students are low (below the Partial threshold), linked to the course report. In separate-groups courses, a user without *Access all groups* counts only their own groups |
 | Recent classes | Managers, Teachers, Coordinators | The five latest classes of the period, newest first: the class (linked to its report), its course and start time, and out of the expected students how many were present overall (present + partial), as a percentage coloured by the student thresholds and as counts ("17 of 18 present"). Managers see every course; Teachers and Coordinators their own courses, and in separate-groups courses without *Access all groups* only their own groups |
 | My teaching | Teachers, Coordinators | Their own teaching attendance per course (teacher tracking on) |
-| Teacher attendance | Managers, Coordinators | The five non-editing teachers with the lowest attendance (Coordinators are left out), and a link to the overview of every teacher, Coordinators included. Managers see every course; Coordinators the non-editing teachers of their own courses (teacher tracking on) |
+| Teacher attendance | Managers, Coordinators | The five non-editing teachers with the lowest attendance (Coordinators are left out), and a link to the overview of every teacher, Coordinators included. Managers see every course; Coordinators the non-editing teachers of their own courses (teacher tracking on). With Zoom attendance's *View contact numbers*, each row has the teacher's numbers with Call and WhatsApp links |
 
 Each percentage has a thin bar coloured as Zoom attendance colours it: green from the Present
 threshold, orange from the Partial threshold and red below, with a line at the Present threshold.

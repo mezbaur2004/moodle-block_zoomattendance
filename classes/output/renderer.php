@@ -121,7 +121,8 @@ class renderer extends \plugin_renderer_base {
                 $items[] = $this->meter_row(
                     new moodle_url('/local/zoomattendance/teachers.php', ['id' => $row['courseid']] + $range),
                     s($row['name']),
-                    $this->course_name($row['courseid'], $row['course']) . $this->joined_line($row['joined']),
+                    $this->course_name($row['courseid'], $row['course']) . $this->joined_line($row['joined'])
+                        . $this->phones($row['phones'] ?? []),
                     $row['percentage'],
                     $teachers
                 );
@@ -182,6 +183,20 @@ class renderer extends \plugin_renderer_base {
                 . $footer,
             'block_zoomattendance-section'
         );
+    }
+
+    /**
+     * A teacher's contact numbers, with links to call and to message on WhatsApp, as Zoom
+     * attendance shows them beside names.
+     *
+     * @param array[] $numbers Each with text and digits.
+     * @return string
+     */
+    protected function phones(array $numbers): string {
+        $numbers = array_map(function ($number) {
+            return (object) $number;
+        }, $numbers);
+        return $this->page->get_renderer('local_zoomattendance')->phones($numbers, 'mt-1');
     }
 
     /**
