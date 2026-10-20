@@ -1,5 +1,12 @@
 # Changes
 
+## 0.6.1 (2026102000)
+
+- *Teacher attendance* rows show each teacher's contact numbers with **Call** and **WhatsApp**
+  links, as Zoom attendance does beside names, for users with its *View contact numbers*
+  capability. The Moodle app shows them too.
+- Needs local_zoomattendance 0.6.0.
+
 ## 0.6.0 (2026100800)
 
 - **Recent classes**: a new section with the five latest classes, newest first. Each row shows

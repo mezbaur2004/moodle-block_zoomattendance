@@ -27,6 +27,7 @@ namespace block_zoomattendance\local;
 use local_zoomattendance\local\course_summary;
 use local_zoomattendance\local\data_version;
 use local_zoomattendance\local\headcount;
+use local_zoomattendance\local\phone;
 use local_zoomattendance\local\settings;
 use local_zoomattendance\local\teacher_access;
 use local_zoomattendance\local\teacher_overview;
@@ -434,7 +435,8 @@ class content {
      * @param int $userid
      * @param int $from
      * @param int $to
-     * @return array|null With rows (each with name, courseid, course, percentage and joined), total
+     * @return array|null With rows (each with name, courseid, course, percentage, joined and phones,
+     *     from local_zoomattendance's phone::numbers() as arrays, empty without viewphone), total
      *     and mine (whether the list covers only the user's own courses), or null when the user
      *     views no other teacher.
      */
@@ -458,6 +460,10 @@ class content {
                 'course' => $row->course->fullname,
                 'percentage' => $row->overall->percentage(),
                 'joined' => $row->joined ? $row->joined->percentage() : null,
+                // Contact numbers, for viewers with Zoom attendance's viewphone in the course.
+                'phones' => array_map(function ($number) {
+                    return (array) $number;
+                }, phone::for_viewer($row->user, \context_course::instance($row->course->id))),
             ];
         }
         usort($rows, function ($a, $b) {
